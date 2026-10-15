@@ -1,12 +1,9 @@
-from functools import lru_cache
-from app.core.config import settings
-
-
-@lru_cache
-def get_model():
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(settings.embedding_model)
+"""Legacy compatibility module; neural embeddings are intentionally disabled in production."""
+import re
+from collections import Counter
 
 
 def embed(text: str):
-    return get_model().encode(text, normalize_embeddings=True).tolist()
+    """Return a lightweight token-count mapping, not a neural vector."""
+    tokens = re.findall(r"[a-z0-9]+", (text or "").lower())
+    return dict(Counter(token for token in tokens if len(token) > 1))
