@@ -5,6 +5,7 @@ from app.database.mongo import db
 from app.models.schemas import HumanMessage, TestInbound
 from app.services.conversation_service import list_conversations, process_inbound
 from app.services.secret_service import account_access_token
+from app.services.client_meta_config_service import get_client_meta_config
 from app.services.usage_service import record_message
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
@@ -79,7 +80,7 @@ async def human_reply(conversation_id: str, payload: HumanMessage, client_id: st
     if not account:
         raise HTTPException(400, "No active Instagram account")
     from app.services.instagram_service import InstagramService
-    result = await InstagramService().send_text(account["instagram_user_id"], account_access_token(account), convo["sender_id"], payload.text)
+    result = await InstagramService().send_text(account["instagram_user_id"], account_access_token(account), convo["sender_id"], payload.text, await get_client_meta_config(client_id))
     await db().messages.insert_one({
         "conversation_id": oid, "client_id": client_id, "direction": "outbound",
         "sender_id": "human", "text": payload.text, "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc),

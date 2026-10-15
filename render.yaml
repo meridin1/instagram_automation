@@ -12,6 +12,8 @@ services:
         sync: false
       - key: MONGODB_DB
         value: meridin_instagram
+      - key: PUBLIC_BASE_URL
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: TOKEN_ENCRYPTION_KEY
@@ -21,4 +23,4 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: CORS_ORIGINS
-        value: https://meridin-instagram-api.onrender.com
+        sync: false

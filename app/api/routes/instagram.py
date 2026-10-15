@@ -7,7 +7,7 @@ from app.database.mongo import db
 from app.models.schemas import InstagramAccountCreate, ProductMappingCreate
 from app.services.instagram_service import InstagramService
 from app.services.secret_service import encrypt_secret, account_access_token
-from app.services.platform_config_service import get_meta_config
+from app.services.client_meta_config_service import get_client_meta_config
 from app.services.conversation_service import process_inbound
 
 router = APIRouter(tags=["instagram"])
@@ -41,7 +41,8 @@ async def subscribe_account(account_id: str, client_id: str = Depends(get_client
     except Exception: raise HTTPException(400,"Invalid account id")
     account=await db().instagram_accounts.find_one({"_id":oid,"client_id":client_id,"active":True})
     if not account: raise HTTPException(404,"Instagram account not found")
-    result=await InstagramService().subscribe_messages(account["instagram_user_id"],account_access_token(account))
+    config = await get_client_meta_config(client_id)
+    result=await InstagramService().subscribe_messages(account["instagram_user_id"],account_access_token(account),config)
     await db().instagram_accounts.update_one({"_id":oid},{"$set":{"webhook_subscribed":True,"webhook_subscribed_at":datetime.now(timezone.utc)}})
     return {"ok":True,"result":result}
 
@@ -56,9 +57,9 @@ async def accounts(client_id: str = Depends(get_client_id)):
 
 @router.post("/api/instagram/connect")
 async def connect(client_id: str = Depends(get_client_id)):
-    config = await get_meta_config()
-    if not config.get("oauth_client_id") or not config.get("oauth_client_secret"):
-        raise HTTPException(503, "Instagram integration is not configured by the Meridin platform administrator")
+    config = await get_client_meta_config(client_id)
+    if not config.get("oauth_client_id") or not config.get("oauth_client_secret") or not config.get("app_secret") or not config.get("verify_token"):
+        raise HTTPException(503, "Complete and save your Meta app configuration in Settings → Instagram integration before connecting.")
     service = InstagramService()
     state = service.oauth_state(client_id)
     await db().oauth_states.insert_one({"state": state, "client_id": client_id, "created_at": datetime.now(timezone.utc)})
@@ -89,9 +90,9 @@ async def oauth_callback(
         raise HTTPException(400, "Instagram connection timed out. Please connect again from the dashboard.")
     # Consume state before exchanging the code so the same callback cannot be replayed.
     await db().oauth_states.delete_one({"_id": state_doc["_id"]})
-    config = await get_meta_config()
+    config = await get_client_meta_config(state_doc["client_id"])
     if not config.get("oauth_client_id") or not config.get("oauth_client_secret"):
-        raise HTTPException(503, "Instagram integration is not configured by the Meridin platform administrator")
+        raise HTTPException(503, "The Meta app configuration for this workspace is incomplete.")
     service = InstagramService()
     short_lived_data = await service.exchange_code(code, config)
     short_lived_token = short_lived_data.get("access_token")
@@ -99,7 +100,7 @@ async def oauth_callback(
         raise HTTPException(502, "OAuth response did not contain an access token")
     token_data = await service.exchange_long_lived_token(short_lived_token, config)
     access_token = token_data["access_token"]
-    account = await service.fetch_account(access_token)
+    account = await service.fetch_account(access_token, config)
     expires_in = int(token_data.get("expires_in", 0) or 0)
     expires_at = datetime.now(timezone.utc).timestamp() + expires_in if expires_in else None
     await service.save_account(state_doc["client_id"], account, access_token, expires_at=expires_at)
@@ -116,7 +117,8 @@ async def refresh_account_token(account_id: str, client_id: str = Depends(get_cl
     account = await db().instagram_accounts.find_one({"_id": oid, "client_id": client_id, "active": True})
     if not account:
         raise HTTPException(404, "Instagram account not found")
-    token_data = await InstagramService().refresh_long_lived_token(account_access_token(account))
+    config = await get_client_meta_config(client_id)
+    token_data = await InstagramService().refresh_long_lived_token(account_access_token(account), config)
     expires_in = int(token_data.get("expires_in", 0) or 0)
     expires_at = datetime.now(timezone.utc).timestamp() + expires_in if expires_in else account.get("token_expires_at")
     await db().instagram_accounts.update_one(
@@ -159,28 +161,30 @@ async def create_mapping(payload: ProductMappingCreate, client_id: str = Depends
     return {"ok": True, "mapping_id": str(result.upserted_id or payload.instagram_media_id)}
 
 
-@router.get("/webhooks/instagram")
-async def verify_webhook(request: Request):
+@router.get("/webhooks/instagram/{client_id}")
+async def verify_webhook(client_id: str, request: Request):
+    config = await get_client_meta_config(client_id)
     params = request.query_params
-    config = await get_meta_config()
     if not config.get("verify_token") or params.get("hub.verify_token") != config["verify_token"]:
-        raise HTTPException(403, "Verification token mismatch")
+        raise HTTPException(403, "Verification token mismatch for this customer app")
     return int(params.get("hub.challenge", "0"))
 
 
-@router.post("/webhooks/instagram")
-async def receive_webhook(request: Request):
+@router.post("/webhooks/instagram/{client_id}")
+async def receive_webhook(client_id: str, request: Request):
     raw = await request.body()
     signature = request.headers.get("X-Hub-Signature-256")
-    config = await get_meta_config()
-    if not InstagramService().verify_signature(raw, signature, config.get("app_secret")):
-        raise HTTPException(403, "Invalid webhook signature")
-
+    config = await get_client_meta_config(client_id)
+    service = InstagramService()
+    # Instagram Login and Meta app credentials may be distinct. Accept the signature only
+    # when it matches one of this tenant's configured secrets; never try another tenant's keys.
+    valid = service.verify_signature(raw, signature, config.get("app_secret")) or service.verify_signature(raw, signature, config.get("oauth_client_secret"))
+    if not valid:
+        raise HTTPException(403, "Invalid webhook signature for this customer app")
     try:
         payload = json.loads(raw.decode("utf-8"))
     except Exception:
         raise HTTPException(400, "Invalid JSON")
-
     events = []
     for entry in payload.get("entry", []):
         for messaging in entry.get("messaging", []):
@@ -191,40 +195,30 @@ async def receive_webhook(request: Request):
             recipient = (messaging.get("recipient") or {}).get("id")
             if not text and attachments:
                 attachment_types = {str(item.get("type", "attachment")).lower() for item in attachments if isinstance(item, dict)}
-                if "image" in attachment_types:
-                    text = "[instagram_attachment:image]"
-                elif "audio" in attachment_types:
-                    text = "[instagram_attachment:audio]"
-                elif "video" in attachment_types:
-                    text = "[instagram_attachment:video]"
-                else:
-                    text = "[instagram_attachment:other]"
+                if "image" in attachment_types: text = "[instagram_attachment:image]"
+                elif "audio" in attachment_types: text = "[instagram_attachment:audio]"
+                elif "video" in attachment_types: text = "[instagram_attachment:video]"
+                else: text = "[instagram_attachment:other]"
             if text and sender:
-                events.append({
-                    "sender_id": sender,
-                    "recipient_id": recipient,
-                    "text": text,
-                    "message_id": message.get("mid"),
-                    "timestamp": messaging.get("timestamp"),
-                })
-
-    # Return quickly to Meta after basic validation. Processing happens after payload parsing.
-    # FastAPI keeps this request alive until the coroutine completes, so process only parsed events.
+                events.append({"sender_id": sender, "recipient_id": recipient, "text": text, "message_id": message.get("mid"), "timestamp": messaging.get("timestamp")})
     results = []
     for event in events:
-        account = await db().instagram_accounts.find_one({"instagram_user_id": event["recipient_id"], "active": True})
+        account = await db().instagram_accounts.find_one({"instagram_user_id": event["recipient_id"], "client_id": client_id, "active": True})
         if not account:
             continue
         try:
-            result = await process_inbound(
-                client_id=account["client_id"],
-                instagram_account_id=str(account["_id"]),
-                sender_id=event["sender_id"],
-                text=event["text"],
-                send_to_instagram=True,
-                external_message_id=event["message_id"],
-            )
+            result = await process_inbound(client_id=client_id, instagram_account_id=str(account["_id"]), sender_id=event["sender_id"], text=event["text"], send_to_instagram=True, external_message_id=event["message_id"])
             results.append(result)
         except Exception as exc:
             results.append({"status": "error", "error": str(exc)[:300]})
     return {"ok": True, "processed": len(results)}
+
+
+@router.get("/webhooks/instagram")
+async def old_webhook_url_notice():
+    raise HTTPException(400, "Use the customer-specific webhook URL shown in the Client Portal → Instagram integration settings.")
+
+
+@router.post("/webhooks/instagram")
+async def old_webhook_post_notice():
+    raise HTTPException(400, "Use the customer-specific webhook URL shown in the Client Portal → Instagram integration settings.")

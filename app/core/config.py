@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "Meridin Instagram Automation"
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "meridin_instagram"
+    public_base_url: str = "https://instagram-automation-kx8n.onrender.com"
 
     jwt_secret: str = "change-me-in-production"
     token_encryption_key: str = ""

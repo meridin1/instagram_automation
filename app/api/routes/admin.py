@@ -6,44 +6,9 @@ from pymongo.errors import DuplicateKeyError
 from app.core.security import get_admin_user, hash_password
 from app.database.mongo import db
 from app.models.schemas import AdminClientCreate, AdminClientUpdate
-from app.services.platform_config_service import public_meta_config, save_meta_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-
-class MetaPlatformConfigUpdate(BaseModel):
-    oauth_client_id: str = ""
-    oauth_client_secret: str = ""
-    app_secret: str = ""
-    verify_token: str = ""
-    graph_base_url: str = "https://graph.instagram.com"
-    graph_version: str = "v24.0"
-    redirect_uri: str
-    authorize_url: str = "https://www.instagram.com/oauth/authorize"
-    token_url: str = "https://api.instagram.com/oauth/access_token"
-    oauth_scopes: str = "instagram_business_basic,instagram_business_manage_messages"
-
-@router.get("/platform/meta-config")
-async def get_platform_meta_config(user=Depends(get_admin_user)):
-    return await public_meta_config()
-
-@router.put("/platform/meta-config")
-async def update_platform_meta_config(payload: MetaPlatformConfigUpdate, user=Depends(get_admin_user)):
-    values = payload.model_dump()
-    values["oauth_scopes"] = [part.strip() for part in values["oauth_scopes"].split(",") if part.strip()]
-    for key in ("graph_base_url", "authorize_url", "token_url", "redirect_uri"):
-        if not values[key].startswith("https://") and not (key == "redirect_uri" and values[key].startswith("http://localhost")):
-            raise HTTPException(422, f"{key} must use HTTPS")
-    # Empty secret fields mean "keep existing"; secret values are never returned by GET.
-    current = await public_meta_config()
-    if not values["oauth_client_secret"] and current["oauth_client_secret_set"]:
-        values["oauth_client_secret"] = None
-    if not values["app_secret"] and current["app_secret_set"]:
-        values["app_secret"] = None
-    if not values["verify_token"] and current["verify_token_set"]:
-        values["verify_token"] = None
-    await save_meta_config(values)
-    return await public_meta_config()
 
 def _now(): return datetime.now(timezone.utc)
 
