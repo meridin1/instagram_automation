@@ -1,0 +1,34 @@
+text,intent
+Could I know the price for this?,product_price
+What would I pay for this one?,product_price
+How much is the item?,product_price
+Do you still stock this?,product_availability
+Can I get one now?,product_availability
+Is this one available today?,product_availability
+What colour choices do you have?,product_color
+Does this have more shades?,product_color
+Can I see the other colours?,product_color
+Please share the shopping page,product_link
+Where can I find the link to this?,product_link
+Could you share the URL?,product_link
+Do you have more options like this?,product_alternatives
+Can you show me a different design?,product_alternatives
+What other models are available?,product_alternatives
+Where is your showroom?,location_query
+Which city is the shop in?,location_query
+Can you tell me where the store is?,location_query
+Do you ship to my place?,delivery_query
+Is home delivery possible?,delivery_query
+What shipping do you offer?,delivery_query
+Can I talk to the shop owner?,human_handoff
+Please connect me with a person,human_handoff
+I need to speak to someone,human_handoff
+Good afternoon,greeting
+Hello there,greeting
+Heyyy,greeting
+Thanks for the help,thanks
+Thank you so much,thanks
+Appreciate the information,thanks
+Can you recommend something for a wedding?,unknown
+I need help choosing a dress,unknown
+What would suit my sister?,unknown
