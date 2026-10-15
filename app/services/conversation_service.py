@@ -6,6 +6,7 @@ from app.services.ai_orchestrator import understand
 from app.services.response_service import build_response
 from app.services.instagram_service import InstagramService
 from app.services.secret_service import account_access_token
+from app.services.client_meta_config_service import get_client_meta_config
 from app.services.usage_service import record_message, reserve_message_rate, data_limit_reached
 
 
@@ -170,6 +171,7 @@ async def process_inbound(
                 account_access_token(account),
                 sender_id,
                 reply,
+                await get_client_meta_config(client_id),
             )
             result["meta"] = meta
 

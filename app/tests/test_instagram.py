@@ -89,11 +89,8 @@ async def test_oauth_code_exchange_uses_database_config(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_instagram_login_subscribes_using_me_endpoint(monkeypatch):
-    async def fake_config():
-        return CONFIG
-    monkeypatch.setattr("app.services.instagram_service.get_meta_config", fake_config)
     monkeypatch.setattr("app.services.instagram_service.httpx.AsyncClient", _FakeAsyncClient)
-    result = await InstagramService().subscribe_messages("ig-user-123", "test-token")
+    result = await InstagramService().subscribe_messages("ig-user-123", "test-token", CONFIG)
     method, url, kwargs = _FakeAsyncClient.last_request
     assert method == "POST"
     assert url == "https://graph.instagram.com/v24.0/me/subscribed_apps"
@@ -103,11 +100,8 @@ async def test_instagram_login_subscribes_using_me_endpoint(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_send_text_uses_database_graph_config(monkeypatch):
-    async def fake_config():
-        return CONFIG
-    monkeypatch.setattr("app.services.instagram_service.get_meta_config", fake_config)
     monkeypatch.setattr("app.services.instagram_service.httpx.AsyncClient", _FakeAsyncClient)
-    await InstagramService().send_text("ig-user-123", "token", "recipient-1", "hello")
+    await InstagramService().send_text("ig-user-123", "token", "recipient-1", "hello", CONFIG)
     method, url, kwargs = _FakeAsyncClient.last_request
     assert method == "POST"
     assert url == "https://graph.instagram.com/v24.0/ig-user-123/messages"

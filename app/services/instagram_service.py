@@ -4,7 +4,6 @@ import secrets
 from urllib.parse import urlencode
 import httpx
 from fastapi import HTTPException
-from app.services.platform_config_service import get_meta_config
 from app.database.mongo import db
 from app.services.secret_service import encrypt_secret, account_access_token
 
@@ -14,11 +13,13 @@ class InstagramService:
         base = config["graph_base_url"].rstrip("/")
         return f"{base}/{config['graph_version']}/{path.lstrip('/')}"
 
-    async def subscribe_messages(self, ig_user_id: str, access_token: str):
+    async def subscribe_messages(self, ig_user_id: str, access_token: str, config: dict | None = None):
         # Instagram API with Instagram Login subscribes the authorized account via /me.
         # ig_user_id is retained in the signature for callers and audit logs, but must not
         # be used as the subscription path for this auth flow.
-        config = await get_meta_config()
+        config = config or {}
+        if not config.get("graph_base_url") or not config.get("graph_version"):
+            raise HTTPException(503, "Customer Meta app configuration is missing")
         url = self._url("me/subscribed_apps", config)
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(url, data={"subscribed_fields": "messages,messaging_postbacks", "access_token": access_token})
@@ -26,10 +27,12 @@ class InstagramService:
                 raise HTTPException(502, f"Instagram webhook subscription failed: {response.text[:500]}")
             return response.json()
 
-    async def send_text(self, ig_user_id: str, access_token: str, recipient_id: str, text: str):
+    async def send_text(self, ig_user_id: str, access_token: str, recipient_id: str, text: str, config: dict | None = None):
         # Meta's Instagram messaging endpoint can vary by API product/version.
         # This uses the current Graph-style /{ig-user_id}/messages shape.
-        config = await get_meta_config()
+        config = config or {}
+        if not config.get("graph_base_url") or not config.get("graph_version"):
+            raise HTTPException(503, "Customer Meta app configuration is missing")
         url = self._url(f"{ig_user_id}/messages", config)
         payload = {"recipient": {"id": recipient_id}, "message": {"text": text}}
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -40,7 +43,7 @@ class InstagramService:
             return response.json()
 
     def verify_signature(self, raw_body: bytes, signature: str | None, app_secret: str | None = None) -> bool:
-        # Fail closed: without the DB-configured Meta app secret, no webhook signature is trusted.
+        # Fail closed: a signature must match the configured secret for the target customer app.
         if not app_secret:
             return False
         if not signature or not signature.startswith("sha256="):
@@ -92,8 +95,10 @@ class InstagramService:
                 raise HTTPException(502, "Instagram token exchange did not return an access token")
             return data
 
-    async def refresh_long_lived_token(self, access_token: str):
-        config = await get_meta_config()
+    async def refresh_long_lived_token(self, access_token: str, config: dict | None = None):
+        config = config or {}
+        if not config.get("graph_base_url"):
+            raise HTTPException(503, "Customer Meta app configuration is missing")
         url = f"{config['graph_base_url'].rstrip('/')}/refresh_access_token"
         params = {"grant_type": "ig_refresh_token", "access_token": access_token}
         async with httpx.AsyncClient(timeout=20) as client:
@@ -105,8 +110,10 @@ class InstagramService:
                 raise HTTPException(502, "Instagram token refresh did not return an access token")
             return data
 
-    async def fetch_account(self, access_token: str):
-        config = await get_meta_config()
+    async def fetch_account(self, access_token: str, config: dict | None = None):
+        config = config or {}
+        if not config.get("graph_base_url") or not config.get("graph_version"):
+            raise HTTPException(503, "Customer Meta app configuration is missing")
         fields = "user_id,username"
         url = f"{config['graph_base_url'].rstrip('/')}/{config['graph_version']}/me"
         async with httpx.AsyncClient(timeout=20) as client:

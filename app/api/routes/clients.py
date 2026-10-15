@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.database.mongo import db
 from app.models.schemas import ClientCreate, BusinessSettingsUpdate, AutomationSettingsUpdate
 from app.core.security import get_client_id
+from app.services.client_meta_config_service import public_client_meta_config, save_client_meta_config
+from fastapi import Request
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -26,6 +28,24 @@ async def update_me(payload: ClientCreate, client_id: str = Depends(get_client_i
     client = await db().clients.find_one({"_id": ObjectId(client_id)})
     client["id"] = str(client.pop("_id"))
     return client
+
+
+@router.get("/meta-config")
+async def get_my_meta_config(client_id: str = Depends(get_client_id)):
+    return await public_client_meta_config(client_id)
+
+
+@router.put("/meta-config")
+async def update_my_meta_config(payload: dict, client_id: str = Depends(get_client_id)):
+    values = dict(payload)
+    values["oauth_scopes"] = [part.strip() for part in str(values.get("oauth_scopes", "instagram_business_basic,instagram_business_manage_messages")).split(",") if part.strip()]
+    for key in ("graph_base_url", "authorize_url", "token_url"):
+        if not str(values.get(key, "")).startswith("https://"):
+            raise HTTPException(422, f"{key} must use HTTPS")
+    values["graph_version"] = str(values.get("graph_version", "v24.0")).strip()
+    if not values["graph_version"].startswith("v"):
+        raise HTTPException(422, "Graph API version should look like v24.0")
+    return await save_client_meta_config(client_id, values)
 
 
 @router.get("/business-settings")
