@@ -27,7 +27,6 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 20
     llm_max_output_tokens: int = 700
 
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
