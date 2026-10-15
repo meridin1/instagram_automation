@@ -1,0 +1,692 @@
+[
+  {
+    "text": "black kurti in XL",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        11,
+        "CATEGORY"
+      ],
+      [
+        15,
+        17,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "blue dress size M",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        16,
+        17,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "pink kurti under 1500",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        17,
+        21,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "red saree in L",
+    "entities": [
+      [
+        0,
+        3,
+        "COLOR"
+      ],
+      [
+        4,
+        9,
+        "CATEGORY"
+      ],
+      [
+        13,
+        14,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "white top XL",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        9,
+        "CATEGORY"
+      ],
+      [
+        10,
+        12,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "black shirt under \u20b92000",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        12,
+        "CATEGORY"
+      ],
+      [
+        21,
+        26,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "green kurti size XXL",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        11,
+        "CATEGORY"
+      ],
+      [
+        17,
+        20,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "navy dress below 1200",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        17,
+        21,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "maroon saree 3XL",
+    "entities": [
+      [
+        0,
+        6,
+        "COLOR"
+      ],
+      [
+        7,
+        12,
+        "CATEGORY"
+      ],
+      [
+        13,
+        16,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "cream top in S",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        9,
+        "CATEGORY"
+      ],
+      [
+        13,
+        14,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "beige kurti below \u20b91800",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        11,
+        "CATEGORY"
+      ],
+      [
+        20,
+        25,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "purple dress in XL",
+    "entities": [
+      [
+        0,
+        6,
+        "COLOR"
+      ],
+      [
+        7,
+        12,
+        "CATEGORY"
+      ],
+      [
+        16,
+        18,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "yellow shirt size M",
+    "entities": [
+      [
+        0,
+        6,
+        "COLOR"
+      ],
+      [
+        7,
+        12,
+        "CATEGORY"
+      ],
+      [
+        18,
+        19,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "orange top under 999",
+    "entities": [
+      [
+        0,
+        6,
+        "COLOR"
+      ],
+      [
+        7,
+        10,
+        "CATEGORY"
+      ],
+      [
+        17,
+        20,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "cotton kurti in black XL",
+    "entities": [
+      [
+        7,
+        12,
+        "CATEGORY"
+      ],
+      [
+        16,
+        21,
+        "COLOR"
+      ],
+      [
+        22,
+        24,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "printed kurti size L",
+    "entities": [
+      [
+        8,
+        13,
+        "CATEGORY"
+      ],
+      [
+        19,
+        20,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "floral kurti in pink",
+    "entities": [
+      [
+        8,
+        13,
+        "CATEGORY"
+      ],
+      [
+        17,
+        21,
+        "COLOR"
+      ]
+    ]
+  },
+  {
+    "text": "denim shirt in blue M",
+    "entities": [
+      [
+        6,
+        11,
+        "CATEGORY"
+      ],
+      [
+        15,
+        19,
+        "COLOR"
+      ],
+      [
+        20,
+        21,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "casual dress under 2500",
+    "entities": [
+      [
+        7,
+        12,
+        "CATEGORY"
+      ],
+      [
+        21,
+        25,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "party top in black",
+    "entities": [
+      [
+        6,
+        9,
+        "CATEGORY"
+      ],
+      [
+        13,
+        18,
+        "COLOR"
+      ]
+    ]
+  },
+  {
+    "text": "women kurti XL",
+    "entities": [
+      [
+        6,
+        11,
+        "CATEGORY"
+      ],
+      [
+        12,
+        14,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "men shirt XXL",
+    "entities": [
+      [
+        4,
+        9,
+        "CATEGORY"
+      ],
+      [
+        10,
+        13,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "kids dress S",
+    "entities": [
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        11,
+        12,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "show me black kurti",
+    "entities": [
+      [
+        9,
+        14,
+        "COLOR"
+      ],
+      [
+        15,
+        20,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "looking for blue dress",
+    "entities": [
+      [
+        13,
+        17,
+        "COLOR"
+      ],
+      [
+        18,
+        23,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "something in pink XL",
+    "entities": [
+      [
+        13,
+        17,
+        "COLOR"
+      ],
+      [
+        18,
+        20,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "something below 1000",
+    "entities": [
+      [
+        17,
+        21,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "under Rs 1500 black kurti",
+    "entities": [
+      [
+        6,
+        8,
+        "PRICE"
+      ],
+      [
+        14,
+        19,
+        "COLOR"
+      ],
+      [
+        20,
+        25,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "under INR 2000 red saree",
+    "entities": [
+      [
+        8,
+        12,
+        "PRICE"
+      ],
+      [
+        13,
+        16,
+        "COLOR"
+      ],
+      [
+        17,
+        22,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "kurti in lavender",
+    "entities": [
+      [
+        0,
+        5,
+        "CATEGORY"
+      ],
+      [
+        9,
+        17,
+        "COLOR"
+      ]
+    ]
+  },
+  {
+    "text": "grey top in XS",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        8,
+        "CATEGORY"
+      ],
+      [
+        12,
+        14,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "wine dress in M",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        14,
+        15,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Zara black kurti XL",
+    "entities": [
+      [
+        0,
+        4,
+        "BRAND"
+      ],
+      [
+        5,
+        10,
+        "COLOR"
+      ],
+      [
+        11,
+        16,
+        "CATEGORY"
+      ],
+      [
+        17,
+        19,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Floral Kurti in pink",
+    "entities": [
+      [
+        0,
+        12,
+        "PRODUCT"
+      ],
+      [
+        16,
+        20,
+        "COLOR"
+      ]
+    ]
+  },
+  {
+    "text": "Nike blue shirt M",
+    "entities": [
+      [
+        0,
+        4,
+        "BRAND"
+      ],
+      [
+        5,
+        9,
+        "COLOR"
+      ],
+      [
+        10,
+        15,
+        "CATEGORY"
+      ],
+      [
+        16,
+        17,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Summer Dress under 2000",
+    "entities": [
+      [
+        0,
+        12,
+        "PRODUCT"
+      ],
+      [
+        19,
+        23,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "Allen Solly white top",
+    "entities": [
+      [
+        0,
+        10,
+        "BRAND"
+      ],
+      [
+        11,
+        16,
+        "COLOR"
+      ],
+      [
+        17,
+        20,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "Printed Cotton Kurti XL",
+    "entities": [
+      [
+        0,
+        20,
+        "PRODUCT"
+      ],
+      [
+        21,
+        23,
+        "SIZE"
+      ]
+    ]
+  }
+]

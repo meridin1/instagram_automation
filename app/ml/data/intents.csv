@@ -1,0 +1,284 @@
+text,intent
+hi,greeting
+hello,greeting
+hey,greeting
+hii,greeting
+hiii,greeting
+hai,greeting
+hello there,greeting
+hey there,greeting
+hi there,greeting
+can you help me,greeting
+thanks,thanks
+thank you,thanks
+thankyou,thanks
+thx,thanks
+thanks a lot,thanks
+thank u,thanks
+okay thanks,thanks
+great thanks,thanks
+appreciate it,thanks
+that helps thanks,thanks
+can i talk to someone,human_handoff
+can i talk to a person,human_handoff
+connect me to someone,human_handoff
+i want to speak to the seller,human_handoff
+let me talk to your team,human_handoff
+i need a human,human_handoff
+can someone help me,human_handoff
+please connect me to an agent,human_handoff
+call me,human_handoff
+i want to talk to your team,human_handoff
+any other designs,product_alternatives
+any other design,product_alternatives
+do you have other designs,product_alternatives
+do you have another design,product_alternatives
+show me other designs,product_alternatives
+any other models,product_alternatives
+do you have other models,product_alternatives
+anything similar,product_alternatives
+show me something similar,product_alternatives
+do you have similar products,product_alternatives
+send me the link,product_link
+send the link,product_link
+share the link,product_link
+give me the link,product_link
+product link please,product_link
+can you send the link,product_link
+where is the link,product_link
+send product link,product_link
+can i get the product link,product_link
+link please,product_link
+where are you located,location_query
+where is your shop,location_query
+what is your location,location_query
+where is your store,location_query
+shop location please,location_query
+what is your address,location_query
+send me your location,location_query
+where is the shop,location_query
+location please,location_query
+which area are you in,location_query
+do you deliver,delivery_query
+do you deliver to my place,delivery_query
+do you have delivery,delivery_query
+what about delivery,delivery_query
+is delivery available,delivery_query
+how do you deliver,delivery_query
+do you ship,delivery_query
+what are your delivery options,delivery_query
+shipping available,delivery_query
+do you provide shipping,delivery_query
+what is the price,product_price
+how much is this,product_price
+how much does this cost,product_price
+price please,product_price
+what does it cost,product_price
+what is the rate,product_price
+how much for this,product_price
+tell me the price,product_price
+how much,product_price
+cost please,product_price
+is this available,product_availability
+is this in stock,product_availability
+do you have this,product_availability
+is this available now,product_availability
+is it in stock,product_availability
+do you still have this,product_availability
+can i get this,product_availability
+is this currently available,product_availability
+do you have stock,product_availability
+available or not,product_availability
+what colours are available,product_color
+what colors are available,product_color
+which colours do you have,product_color
+which colors do you have,product_color
+what colour options are there,product_color
+show me the colours,product_color
+show me the colors,product_color
+do you have this in black,product_color
+is pink available,product_color
+what are the available colours,product_color
+what is the return policy,unknown
+can i return this,unknown
+what is your exchange policy,unknown
+how can i pay,unknown
+can i pay online,unknown
+what payment methods do you accept,unknown
+is there cash on delivery,unknown
+can i order this,unknown
+how do i order,unknown
+please help me,unknown
+good morning,greeting
+good evening,greeting
+heyy there,greeting
+hlo,greeting
+hai there,greeting
+good morning dear,greeting
+hey meridin,greeting
+hello 😊,greeting
+hii there,greeting
+yo hello,greeting
+anyone there,greeting
+hey seller,greeting
+thank you so much,thanks
+many thanks,thanks
+thank u so much,thanks
+thanks dear,thanks
+thank you 😊,thanks
+okay thank you,thanks
+perfect thanks,thanks
+thanks for the info,thanks
+much appreciated,thanks
+thank you for helping,thanks
+thanks a bunch,thanks
+I need to speak with the seller,human_handoff
+connect me with a person,human_handoff
+I want to chat with the owner,human_handoff
+please connect me to support,human_handoff
+let me talk to the seller,human_handoff
+can a human help me,human_handoff
+I need a real person,human_handoff
+put me in touch with someone,human_handoff
+is there someone I can talk to,human_handoff
+please get the seller,human_handoff
+I want to speak with your team,human_handoff
+can you connect me,human_handoff
+let me speak with someone,human_handoff
+I need assistance from a person,human_handoff
+do you have something similar,product_alternatives
+show me another option,product_alternatives
+anything else like this,product_alternatives
+do you have more designs,product_alternatives
+can you show other options,product_alternatives
+are there similar ones,product_alternatives
+what other designs do you have,product_alternatives
+show another dress,product_alternatives
+do you have another one,product_alternatives
+anything different,product_alternatives
+more options please,product_alternatives
+can I see some alternatives,product_alternatives
+any similar models,product_alternatives
+do you have more collections,product_alternatives
+show me something else,product_alternatives
+share the link with me,product_link
+please send the URL,product_link
+can I have the link,product_link
+send me the shopping link,product_link
+where is the purchase link,product_link
+give me the URL,product_link
+please share this link,product_link
+can you give me the shopping link,product_link
+I need the product URL,product_link
+send the page link please,product_link
+could I get the website link,product_link
+share the product URL,product_link
+where is the product page,product_link
+please send the page,product_link
+I want the link for this,product_link
+which city are you in,location_query
+what is your store location,location_query
+where is the store located,location_query
+where can I visit you,location_query
+where is your showroom,location_query
+which place is your shop,location_query
+tell me your location,location_query
+where are you based,location_query
+do you have a physical store,location_query
+what city is your shop in,location_query
+where is the boutique,location_query
+can I get your address,location_query
+where can I find your store,location_query
+is home delivery available,delivery_query
+do you offer shipping,delivery_query
+can you ship to me,delivery_query
+do you provide courier,delivery_query
+do you deliver to my area,delivery_query
+how long does delivery take,delivery_query
+what are your shipping options,delivery_query
+do you send by courier,delivery_query
+can I get this delivered,delivery_query
+do you ship across kerala,delivery_query
+is there delivery to my place,delivery_query
+what does this cost,product_price
+tell me the price of this,product_price
+how much would this be,product_price
+what is the amount,product_price
+how much do I pay,product_price
+what is the selling price,product_price
+can you tell me the cost,product_price
+how expensive is this,product_price
+what is the rate for this,product_price
+please tell me the price,product_price
+how much for this item,product_price
+what would the price be,product_price
+can you tell me how much,product_price
+what is this priced at,product_price
+how much should I pay,product_price
+do you currently have this,product_availability
+can I still get this one,product_availability
+is this still in stock,product_availability
+can I get this now,product_availability
+is this available right now,product_availability
+can I order this,product_availability
+do you have this one,product_availability
+is this still available,product_availability
+is this item in stock,product_availability
+can I buy this now,product_availability
+do you have one left,product_availability
+is this available for purchase,product_availability
+can I get one of these,product_availability
+which shades can I choose from,product_color
+what shades does this come in,product_color
+which shades are available,product_color
+what shades are there,product_color
+do you have different shades,product_color
+can I choose another shade,product_color
+what colours can I choose,product_color
+does this come in other colours,product_color
+what color choices do I have,product_color
+are there more colour options,product_color
+tell me the available shades,product_color
+can I get this in another color,product_color
+what are the shade options,product_color
+can you make it cheaper for me,unknown
+will this look good on me,unknown
+I am looking for something special,unknown
+can you suggest an outfit,unknown
+I need this for a wedding,unknown
+what should I wear tomorrow,unknown
+can you help me choose,unknown
+I want something for my sister,unknown
+do you have something for a birthday,unknown
+can you recommend an outfit,unknown
+I am not sure what I want,unknown
+help me find something nice,unknown
+which dress would suit me,unknown
+I need a gift idea,unknown
+can you help me decide,unknown
+ee dress inte price ethra?,product_price
+ithinte rate ethra aanu?,product_price
+kurti ethra aanu?,product_price
+black colour undo?,product_availability
+ith available ano?,product_availability
+stock undo?,product_availability
+kittumo?,product_availability
+XL undo?,product_size
+XL size kittumo?,product_size
+large size undo?,product_size
+entha colours ullath?,product_color
+vere colour undo?,product_color
+link ayakkamo?,product_link
+link onnu ayakk,product_link
+vere design undo?,product_alternatives
+vere model vallom undo?,product_alternatives
+shop evideya?,location_query
+delivery undo?,delivery_query
+delivery ethra divasam?,delivery_query
+chechiye onnu connect cheyyamo?,human_handoff
+seller aayittu samsarikanam,human_handoff
+hai chechi,greeting
+nanni,thanks
+1500 ullil enthelum undo?,product_search
+black kurti suggest cheyyamo?,product_search
+weddinginu suitable dress venam,product_search

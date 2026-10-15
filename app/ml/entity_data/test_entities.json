@@ -1,0 +1,152 @@
+[
+  {
+    "text": "red kurti in XL",
+    "entities": [
+      [
+        0,
+        3,
+        "COLOR"
+      ],
+      [
+        4,
+        9,
+        "CATEGORY"
+      ],
+      [
+        13,
+        15,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "blue saree under 2500",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        10,
+        "CATEGORY"
+      ],
+      [
+        17,
+        21,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "green top size S",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        9,
+        "CATEGORY"
+      ],
+      [
+        15,
+        16,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Zara red dress M",
+    "entities": [
+      [
+        0,
+        4,
+        "BRAND"
+      ],
+      [
+        5,
+        8,
+        "COLOR"
+      ],
+      [
+        9,
+        14,
+        "CATEGORY"
+      ],
+      [
+        15,
+        16,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Floral Kurti XL",
+    "entities": [
+      [
+        0,
+        12,
+        "PRODUCT"
+      ],
+      [
+        13,
+        15,
+        "SIZE"
+      ]
+    ]
+  },
+  {
+    "text": "Cotton Dress below 1800",
+    "entities": [
+      [
+        0,
+        12,
+        "PRODUCT"
+      ],
+      [
+        20,
+        24,
+        "PRICE"
+      ]
+    ]
+  },
+  {
+    "text": "black shirt",
+    "entities": [
+      [
+        0,
+        5,
+        "COLOR"
+      ],
+      [
+        6,
+        11,
+        "CATEGORY"
+      ]
+    ]
+  },
+  {
+    "text": "pink top in M",
+    "entities": [
+      [
+        0,
+        4,
+        "COLOR"
+      ],
+      [
+        5,
+        8,
+        "CATEGORY"
+      ],
+      [
+        12,
+        13,
+        "SIZE"
+      ]
+    ]
+  }
+]
