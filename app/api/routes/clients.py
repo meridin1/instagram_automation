@@ -38,10 +38,8 @@ async def get_my_meta_config(client_id: str = Depends(get_client_id)):
 @router.put("/meta-config")
 async def update_my_meta_config(payload: dict, client_id: str = Depends(get_client_id)):
     values = dict(payload)
-    values["oauth_scopes"] = [part.strip() for part in str(values.get("oauth_scopes", "instagram_business_basic,instagram_business_manage_messages")).split(",") if part.strip()]
-    for key in ("graph_base_url", "authorize_url", "token_url"):
-        if not str(values.get(key, "")).startswith("https://"):
-            raise HTTPException(422, f"{key} must use HTTPS")
+    if not str(values.get("graph_base_url", "https://graph.instagram.com")).startswith("https://"):
+        raise HTTPException(422, "graph_base_url must use HTTPS")
     values["graph_version"] = str(values.get("graph_version", "v24.0")).strip()
     if not values["graph_version"].startswith("v"):
         raise HTTPException(422, "Graph API version should look like v24.0")

@@ -143,9 +143,10 @@ class AutomationSettingsUpdate(BaseModel):
 
 
 class InstagramAccountCreate(BaseModel):
-    instagram_user_id: str = Field(min_length=1)
+    instagram_user_id: str = Field(min_length=1, max_length=200)
     username: str = Field(min_length=1, max_length=80)
-    access_token: str = Field(min_length=1)
+    # Blank is allowed only for an already-connected account to keep its saved token.
+    access_token: Optional[str] = Field(default=None, min_length=1)
     token_expires_at: Optional[str] = None
 
 

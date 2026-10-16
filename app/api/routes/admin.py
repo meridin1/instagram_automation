@@ -153,7 +153,7 @@ async def delete_client(client_id:str,user=Depends(get_admin_user)):
     except Exception: raise HTTPException(400,"Invalid client id")
     client=await db().clients.find_one({"_id":oid})
     if not client: raise HTTPException(404,"Client not found")
-    for collection in ["users","products","conversations","messages","instagram_accounts","product_mappings","business_settings","automation_settings","oauth_states","client_usage","client_usage_totals","client_rate_windows","llm_usage_events"]:
+    for collection in ["users","products","conversations","messages","instagram_accounts","product_mappings","business_settings","automation_settings","client_usage","client_usage_totals","client_rate_windows","llm_usage_events"]:
         await db()[collection].delete_many({"client_id":client_id})
     await db().clients.delete_one({"_id":oid})
     return {"ok":True,"deleted_client_id":client_id}
