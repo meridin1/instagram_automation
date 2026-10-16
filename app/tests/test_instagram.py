@@ -2,26 +2,21 @@ import hashlib
 import hmac
 import pytest
 from app.services.instagram_service import InstagramService
+from app.models.schemas import InstagramAccountCreate
 
 CONFIG = {
-    "oauth_client_id": "test-app-id",
-    "oauth_client_secret": "test-app-secret",
-    "app_secret": "test-app-secret",
+    "app_id": "test-app-id",
+    "instagram_app_secret": "test-instagram-secret",
+    "app_secret": "test-meta-secret",
     "verify_token": "test-verify",
     "graph_base_url": "https://graph.instagram.com",
     "graph_version": "v24.0",
-    "redirect_uri": "https://example.test/api/instagram/oauth/callback",
-    "authorize_url": "https://www.instagram.com/oauth/authorize",
-    "token_url": "https://api.instagram.com/oauth/access_token",
-    "oauth_scopes": ["instagram_business_basic", "instagram_business_manage_messages"],
 }
-
 
 def test_signature_rejected_without_secret():
     service = InstagramService()
     assert not service.verify_signature(b"abc", None, None)
     assert not service.verify_signature(b"abc", "sha256=invalid", None)
-
 
 def test_valid_signature_accepted():
     secret = "test-meta-secret"
@@ -31,77 +26,44 @@ def test_valid_signature_accepted():
     assert service.verify_signature(body, signature, secret)
     assert not service.verify_signature(body, "sha256=" + "0" * 64, secret)
 
+def test_manual_account_payload_accepts_supplied_token():
+    payload = InstagramAccountCreate(instagram_user_id="123", username="brand", access_token="manual-token")
+    assert payload.instagram_user_id == "123"
+    assert payload.access_token == "manual-token"
 
-def test_oauth_url_contains_state_and_scopes():
-    url = InstagramService().build_oauth_url("state-value", CONFIG)
-    assert "state=state-value" in url
-    assert "redirect_uri=" in url
-    assert "instagram_business_basic" in url
-    assert "instagram_business_manage_messages" in url
-
+def test_existing_account_can_submit_blank_token_to_keep_saved_token():
+    payload = InstagramAccountCreate(instagram_user_id="123", username="brand", access_token=None)
+    assert payload.access_token is None
 
 class _FakeResponse:
     status_code = 200
     text = ""
-
-    def __init__(self, data):
-        self._data = data
-
-    def json(self):
-        return self._data
-
+    def __init__(self, data): self._data = data
+    def json(self): return self._data
 
 class _FakeAsyncClient:
     last_request = None
-
-    def __init__(self, **kwargs):
-        self.request = None
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
+    def __init__(self, **kwargs): pass
+    async def __aenter__(self): return self
+    async def __aexit__(self, exc_type, exc, tb): return False
     async def post(self, url, **kwargs):
-        self.request = ("POST", url, kwargs)
-        _FakeAsyncClient.last_request = self.request
-        return _FakeResponse({"access_token": "test-token", "expires_in": 3600, "success": True})
-
-    async def get(self, url, **kwargs):
-        self.request = ("GET", url, kwargs)
-        _FakeAsyncClient.last_request = self.request
-        return _FakeResponse({"access_token": "long-lived-test-token", "expires_in": 5184000})
-
+        _FakeAsyncClient.last_request = ("POST", url, kwargs)
+        return _FakeResponse({"success": True})
 
 @pytest.mark.asyncio
-async def test_oauth_code_exchange_uses_database_config(monkeypatch):
+async def test_manual_token_subscription_uses_me_endpoint(monkeypatch):
     monkeypatch.setattr("app.services.instagram_service.httpx.AsyncClient", _FakeAsyncClient)
-    result = await InstagramService().exchange_code("one-time-code", CONFIG)
-    method, url, kwargs = _FakeAsyncClient.last_request
-    assert method == "POST"
-    assert url == "https://api.instagram.com/oauth/access_token"
-    assert kwargs["data"]["grant_type"] == "authorization_code"
-    assert kwargs["data"]["client_id"] == "test-app-id"
-    assert kwargs["data"]["client_secret"] == "test-app-secret"
-    assert result["access_token"] == "test-token"
-
-
-@pytest.mark.asyncio
-async def test_instagram_login_subscribes_using_me_endpoint(monkeypatch):
-    monkeypatch.setattr("app.services.instagram_service.httpx.AsyncClient", _FakeAsyncClient)
-    result = await InstagramService().subscribe_messages("ig-user-123", "test-token", CONFIG)
+    result = await InstagramService().subscribe_messages("ig-user-123", "manual-token", CONFIG)
     method, url, kwargs = _FakeAsyncClient.last_request
     assert method == "POST"
     assert url == "https://graph.instagram.com/v24.0/me/subscribed_apps"
-    assert "messages" in kwargs["data"]["subscribed_fields"]
+    assert kwargs["data"]["access_token"] == "manual-token"
     assert result["success"] is True
 
-
 @pytest.mark.asyncio
-async def test_send_text_uses_database_graph_config(monkeypatch):
+async def test_send_text_uses_manual_account_token(monkeypatch):
     monkeypatch.setattr("app.services.instagram_service.httpx.AsyncClient", _FakeAsyncClient)
-    await InstagramService().send_text("ig-user-123", "token", "recipient-1", "hello", CONFIG)
+    await InstagramService().send_text("ig-user-123", "manual-token", "recipient-1", "hello", CONFIG)
     method, url, kwargs = _FakeAsyncClient.last_request
     assert method == "POST"
     assert url == "https://graph.instagram.com/v24.0/ig-user-123/messages"
