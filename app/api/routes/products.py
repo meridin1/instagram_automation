@@ -13,9 +13,13 @@ router = APIRouter(prefix="/api/products", tags=["catalogue"])
 @router.post("")
 async def create(payload: ProductCreate, client_id: str = Depends(get_client_id)):
     doc = await create_product(client_id, payload.model_dump())
+    product = await db().products.find_one({"_id": ObjectId(doc["id"]), "client_id": client_id})
     try:
-        await reindex_product(client_id, await db().products.find_one({"_id": ObjectId(doc["id"]), "client_id": client_id}))
+        await reindex_product(client_id, product)
+        from app.services.visual_search_service import index_product_image
+        await index_product_image(client_id, product)
     except Exception:
+        # Product creation must still succeed if optional CLIP/model hosting is unavailable.
         pass
     return doc
 
@@ -48,6 +52,28 @@ async def list_products(
     return [serialize(x) async for x in cursor]
 
 
+@router.post("/visual-reindex")
+async def visual_reindex(client_id: str = Depends(get_client_id)):
+    """Precompute CLIP vectors for this client's active catalogue images."""
+    from app.core.config import settings
+    if not settings.visual_search_enabled:
+        raise HTTPException(409, "Visual search is disabled. Set VISUAL_SEARCH_ENABLED=true and install requirements-vision.txt.")
+    from app.services.visual_search_service import index_product_image
+    cursor = db().products.find({"client_id": client_id, "active": {"$ne": False}})
+    indexed = 0
+    failed = 0
+    async for product in cursor:
+        try:
+            result = await index_product_image(client_id, product)
+            if result.get("ok"):
+                indexed += 1
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+    return {"ok": failed == 0, "indexed": indexed, "failed": failed, "model": settings.clip_model_name}
+
+
 @router.get("/{product_id}")
 async def get(product_id: str, client_id: str = Depends(get_client_id)):
     try:
@@ -63,7 +89,13 @@ async def get(product_id: str, client_id: str = Depends(get_client_id)):
 @router.patch("/{product_id}")
 async def update(product_id: str, payload: ProductUpdate, client_id: str = Depends(get_client_id)):
     doc = await update_product(client_id, product_id, payload.model_dump(exclude_unset=True))
-    await reindex_product(client_id, await db().products.find_one({"_id": ObjectId(product_id), "client_id": client_id}))
+    product = await db().products.find_one({"_id": ObjectId(product_id), "client_id": client_id})
+    await reindex_product(client_id, product)
+    try:
+        from app.services.visual_search_service import index_product_image
+        await index_product_image(client_id, product)
+    except Exception:
+        pass
     return doc
 
 

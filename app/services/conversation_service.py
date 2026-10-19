@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import asyncio
 from bson import ObjectId
 from app.database.mongo import db
 from app.services.product_service import get_product
@@ -61,6 +62,7 @@ async def process_inbound(
     source_id: str | None = None,
     send_to_instagram: bool = False,
     external_message_id: str | None = None,
+    image_url: str | None = None,
 ):
     database = db()
     client_doc = await database.clients.find_one({"_id": ObjectId(client_id)})
@@ -96,7 +98,34 @@ async def process_inbound(
     product = await get_product(client_id, context_product_id)
 
     automation = await database.automation_settings.find_one({"client_id": client_id}) or {}
-    intent = await understand(text, product, context, bool(automation.get("llm_enabled", False)), client_id=client_id)
+
+    # Text understanding and image embedding run concurrently. The visual path is
+    # CLIP similarity retrieval only; it does not ask an LLM to describe the image.
+    visual_vector_task = None
+    if image_url:
+        from app.services.visual_search_service import image_url_embedding
+        visual_vector_task = image_url_embedding(image_url, meta_only=True)
+
+    if visual_vector_task is not None:
+        intent, visual_vector = await asyncio.gather(
+            understand(text, product, context, bool(automation.get("llm_enabled", False)), client_id=client_id),
+            visual_vector_task,
+        )
+    else:
+        intent = await understand(text, product, context, bool(automation.get("llm_enabled", False)), client_id=client_id)
+        visual_vector = None
+
+    visual_candidates = []
+    visual_filtered_candidates = []
+    if visual_vector:
+        from app.services.visual_search_service import search_by_embedding
+        from app.services.semantic_search_service import _passes_filters
+        # First retrieve visually similar designs, then apply text attributes such as
+        # colour/size/budget. This supports "ithinte blue color undo?" correctly.
+        visual_candidates = await search_by_embedding(client_id, visual_vector, {}, limit=8)
+        visual_filtered_candidates = [
+            item for item in visual_candidates if _passes_filters(item, intent.entities)
+        ]
 
     inbound_doc = {
         "conversation_id": convo["_id"],
@@ -111,6 +140,11 @@ async def process_inbound(
         "intent_confidence": intent.confidence,
         "intent_source": intent.source,
         "entities": intent.entities,
+        "has_image": bool(image_url),
+        "visual_match_count": len(visual_filtered_candidates),
+        "secondary_intents": intent.secondary_intents,
+        "needs_context": intent.needs_context,
+        "clarification_required": intent.clarification_required,
         "created_at": now(),
     }
     try:
@@ -120,10 +154,15 @@ async def process_inbound(
             return {"status": "duplicate", "reply": None}
         raise
 
-    reply, status = await build_response(client_id, intent, product, text)
+    reply, status = await build_response(
+        client_id, intent, product, text,
+        visual_candidates=visual_candidates,
+        visual_filtered_candidates=visual_filtered_candidates,
+        has_image=bool(image_url),
+    )
 
     context["product_id"] = context_product_id
-    context["language"] = "Manglish" if intent.source == "llm" and intent.entities.get("language") == "Manglish" else context.get("language")
+    context["language"] = "Manglish" if intent.source in {"llm", "tier2_llm"} and intent.entities.get("language") == "Manglish" else context.get("language")
     if product:
         context["last_products"] = [str(product["_id"])] + [x for x in context.get("last_products", []) if x != str(product["_id"])][:4]
 
@@ -154,10 +193,20 @@ async def process_inbound(
         "intent_confidence": intent.confidence,
         "intent_source": intent.source,
         "entities": intent.entities,
+        "has_image": bool(image_url),
+        "visual_matches": [
+            {"product_id": str(item.get("_id")), "similarity": item.get("visual_similarity")}
+            for item in visual_filtered_candidates[:5]
+        ],
+        "secondary_intents": intent.secondary_intents,
+        "needs_context": intent.needs_context,
+        "clarification_required": intent.clarification_required,
         "conversation_id": str(convo["_id"]),
     }
 
-    if send_to_instagram and status != "human":
+    # Send the acknowledgement even when this reply triggers human handover.
+    # The conversation remains marked as human, but the customer still receives the message.
+    if send_to_instagram:
         account_query = {"client_id": client_id, "active": True}
         if instagram_account_id:
             try:

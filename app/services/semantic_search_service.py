@@ -46,17 +46,28 @@ async def reindex_client(client_id: str) -> int:
 def _passes_filters(product: dict, entities: dict) -> bool:
     color = str(entities.get("COLOR", "")).strip().lower()
     size = str(entities.get("SIZE", "")).strip().upper()
-    max_price = entities.get("PRICE")
+    category = str(entities.get("CATEGORY", "")).strip().lower()
+    brand = str(entities.get("BRAND", "")).strip().lower()
+    max_price = entities.get("MAX_PRICE", entities.get("PRICE"))
+    min_price = entities.get("MIN_PRICE")
     if color and color not in [str(x).lower() for x in (product.get("colors", []) or [])]:
         return False
     if size and size not in [str(x).upper() for x in (product.get("sizes", []) or [])]:
         return False
-    if max_price is not None:
-        try:
-            price = float(product.get("sale_price") or product.get("price", 0) or 0)
-            if price > float(max_price):
-                return False
-        except (TypeError, ValueError):
+    if category:
+        category_text = " ".join(str(product.get(key, "") or "") for key in ("category", "name", "description")).lower()
+        if category not in category_text:
+            return False
+    if brand and brand not in str(product.get("brand", "")).lower():
+        return False
+    try:
+        price = float(product.get("sale_price") or product.get("price", 0) or 0)
+        if max_price is not None and price > float(max_price):
+            return False
+        if min_price is not None and price < float(min_price):
+            return False
+    except (TypeError, ValueError):
+        if max_price is not None or min_price is not None:
             return False
     if product.get("active") is False:
         return False

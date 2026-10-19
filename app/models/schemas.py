@@ -139,7 +139,7 @@ class AutomationSettingsUpdate(BaseModel):
     language: str = "English"
     tone: str = "Friendly"
     human_handoff_on_unknown: bool = True
-    low_confidence_threshold: float = Field(default=0.55, ge=0, le=1)
+    low_confidence_threshold: float = Field(default=0.65, ge=0, le=1)
 
 
 class InstagramAccountCreate(BaseModel):

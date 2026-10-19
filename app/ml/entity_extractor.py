@@ -6,6 +6,7 @@ product names are additionally matched against the tenant's catalog.
 """
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -80,13 +81,19 @@ def _catalog_entities(text: str, product: dict | None, entities: list[dict]):
             _add(entities, typ, value, "catalog", 1.0, start, start + len(value))
 
 
-def _ml_entities(text: str, entities: list[dict]):
+@lru_cache(maxsize=1)
+def _load_entity_models():
     if not MODEL_PATH.exists() or not VECTORIZER_PATH.exists():
-        return
+        return None, None
     try:
-        model = joblib.load(MODEL_PATH)
-        vectorizer = joblib.load(VECTORIZER_PATH)
+        return joblib.load(MODEL_PATH), joblib.load(VECTORIZER_PATH)
     except Exception:
+        return None, None
+
+
+def _ml_entities(text: str, entities: list[dict]):
+    model, vectorizer = _load_entity_models()
+    if model is None or vectorizer is None:
         return
 
     toks = tokenize(text)

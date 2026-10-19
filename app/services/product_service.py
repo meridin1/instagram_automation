@@ -12,6 +12,9 @@ def serialize(doc: dict | None):
     if not doc:
         return None
     out = dict(doc)
+    # Internal CLIP vectors are large and must never be sent to the dashboard/API.
+    for private_field in ("visual_embedding", "embedding"):
+        out.pop(private_field, None)
     if "_id" in out:
         out["id"] = str(out.pop("_id"))
     return out

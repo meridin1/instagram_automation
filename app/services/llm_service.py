@@ -1,3 +1,9 @@
+"""Tier 2 structured intent/entity interpreter.
+
+Uses an OpenAI-compatible API endpoint. To run a fine-tuned Llama model, configure
+LLM_BASE_URL, LLM_API_STYLE=chat_completions, and LLM_MODEL to your hosted model ID.
+The model itself is hosted separately; this application does not bundle Llama weights.
+"""
 import json
 import logging
 import httpx
@@ -5,37 +11,31 @@ from bson import ObjectId
 from app.core.config import settings
 from app.database.mongo import db
 from app.services.usage_service import record_llm_usage, llm_limit_reached
+from app.services.intent import INTENTS, canonical_intent
 
 logger = logging.getLogger(__name__)
 
+ENTITY_KEYS = ["PRODUCT", "CATEGORY", "BRAND", "COLOR", "SIZE", "PRICE", "MIN_PRICE", "MAX_PRICE", "PATTERN", "ORDER_ID", "LOCATION", "QUANTITY", "occasion"]
+
 SYSTEM_PROMPT = """
-You are Meridin's controlled Instagram-commerce understanding engine for clothing businesses.
-Interpret customer messages. Never invent catalogue facts.
-
-Return only the requested structured JSON. Supported intents:
-greeting, thanks, product_price, product_availability, product_size, product_color,
-product_link, product_alternatives, product_search, location_query, delivery_query,
-order_request, return_request, exchange_request, human_handoff, unknown.
-
-Entities:
-PRODUCT, CATEGORY, BRAND, COLOR, SIZE, PRICE, occasion.
-
-Malayalam script and Malayalam written using English letters (Manglish) are common.
-If the message needs catalogue information, select a safe server tool:
-search_products, get_product, check_availability, get_business_info, get_delivery_info,
-get_customer_context, or handoff_to_human.
-The server, not you, is the source of truth for prices, stock, sizes, colours, links,
-delivery information and business policy.
-"""
+You are Meridin's Tier 2 Instagram-commerce intent and entity interpreter for clothing stores.
+Interpret the customer's message in English, Malayalam, Manglish, spelling variations, and short
+follow-ups. Return only JSON matching the requested schema. Use only supported intent labels.
+The primary intent must describe the customer's main goal. Use secondary_intents for additional
+clear intents (for example, greeting plus product availability). Extract only entities supported by
+the message or supplied conversation context. Use null for absent values; never invent product names,
+prices, stock, policies, delivery promises, working hours, or catalogue facts. If a message depends on
+an unknown product/photo/context, set needs_context=true and clarification_required=true as appropriate.
+If meaning is still unclear, use intent=unknown. Confidence is your estimated interpretation confidence,
+not confidence that a product is in stock. Backend catalogue and business settings are the source of truth.
+""".strip()
 
 
 class LLMService:
     async def classify(self, text: str, context: dict | None = None, client_id: str | None = None) -> dict | None:
-        # Meridin owns the provider/model/API key. Clients never supply their own key.
         if not settings.llm_enabled or not settings.llm_api_key:
             return None
         api_key = settings.llm_api_key
-        client = None
         if client_id:
             try:
                 client = await db().clients.find_one({"_id": ObjectId(client_id)})
@@ -56,65 +56,35 @@ class LLMService:
                 return None
         return result
 
-    async def _responses(self, text: str, context: dict | None, api_key: str):
-        schema = {
-            "type": "object",
-            "additionalProperties": False,
+    @staticmethod
+    def _schema() -> dict:
+        return {
+            "type": "object", "additionalProperties": False,
             "properties": {
-                "intent": {
-                    "type": "string",
-                    "enum": [
-                        "greeting", "thanks", "product_price", "product_availability",
-                        "product_size", "product_color", "product_link", "product_alternatives",
-                        "product_search", "location_query", "delivery_query", "order_request",
-                        "return_request", "exchange_request", "human_handoff", "unknown"
-                    ]
-                },
-                "entities": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "PRODUCT": {"type": ["string", "null"]},
-                        "CATEGORY": {"type": ["string", "null"]},
-                        "BRAND": {"type": ["string", "null"]},
-                        "COLOR": {"type": ["string", "null"]},
-                        "SIZE": {"type": ["string", "null"]},
-                        "PRICE": {"type": ["number", "null"]},
-                        "occasion": {"type": ["string", "null"]},
-                    },
-                    "required": ["PRODUCT", "CATEGORY", "BRAND", "COLOR", "SIZE", "PRICE", "occasion"],
-                },
-                "language": {"type": "string"},
-                "confidence": {"type": "number"},
-                "tool": {
-                    "type": "string",
-                    "enum": [
-                        "search_products", "get_product", "check_availability",
-                        "get_business_info", "get_delivery_info",
-                        "get_customer_context", "handoff_to_human", "none"
-                    ]
-                },
-                "tool_args": {"type": "object"},
+                "intent": {"type": "string", "enum": sorted(INTENTS)},
+                "secondary_intents": {"type": "array", "items": {"type": "string", "enum": sorted(INTENTS)}, "maxItems": 4},
+                "entities": {"type": "object", "additionalProperties": False, "properties": {
+                    "PRODUCT": {"type": ["string", "null"]}, "CATEGORY": {"type": ["string", "null"]},
+                    "BRAND": {"type": ["string", "null"]}, "COLOR": {"type": ["string", "null"]},
+                    "SIZE": {"type": ["string", "null"]}, "PRICE": {"type": ["number", "null"]},
+                    "MIN_PRICE": {"type": ["number", "null"]}, "MAX_PRICE": {"type": ["number", "null"]},
+                    "PATTERN": {"type": ["string", "null"]}, "ORDER_ID": {"type": ["string", "null"]},
+                    "LOCATION": {"type": ["string", "null"]}, "QUANTITY": {"type": ["integer", "null"]},
+                    "occasion": {"type": ["string", "null"]},
+                }, "required": ENTITY_KEYS},
+                "language": {"type": "string"}, "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "needs_context": {"type": "boolean"}, "clarification_required": {"type": "boolean"},
                 "reason": {"type": "string"},
             },
-            "required": ["intent", "entities", "language", "confidence", "tool", "tool_args", "reason"],
+            "required": ["intent", "secondary_intents", "entities", "language", "confidence", "needs_context", "clarification_required", "reason"],
         }
+
+    async def _responses(self, text: str, context: dict | None, api_key: str):
         payload = {
-            "model": settings.llm_model,
-            "instructions": SYSTEM_PROMPT,
+            "model": settings.llm_model, "instructions": SYSTEM_PROMPT,
             "input": json.dumps({"message": text, "context": context or {}}, ensure_ascii=False),
-            "temperature": 0,
-            "max_output_tokens": settings.llm_max_output_tokens,
-            "store": False,
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "meridin_intent",
-                    "description": "Structured intent and safe tool routing for Meridin.",
-                    "strict": True,
-                    "schema": schema,
-                }
-            },
+            "temperature": 0, "max_output_tokens": settings.llm_max_output_tokens, "store": False,
+            "text": {"format": {"type": "json_schema", "name": "meridin_intent", "description": "Tier 2 intent and entity extraction", "strict": True, "schema": self._schema()}},
         }
         return await self._post_and_parse(f"{settings.llm_base_url.rstrip('/')}/responses", payload, api_key)
 
@@ -122,11 +92,9 @@ class LLMService:
         payload = {
             "model": settings.llm_model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT + "\nReturn a single valid JSON object with fields: intent, secondary_intents, entities, language, confidence, needs_context, clarification_required, reason. Entity keys: " + ", ".join(ENTITY_KEYS) + ". Use null for absent entity values."},
                 {"role": "user", "content": json.dumps({"message": text, "context": context or {}}, ensure_ascii=False)},
-            ],
-            "temperature": 0,
-            "max_tokens": settings.llm_max_output_tokens,
+            ], "temperature": 0, "max_tokens": settings.llm_max_output_tokens,
             "response_format": {"type": "json_object"},
         }
         return await self._post_and_parse(f"{settings.llm_base_url.rstrip('/')}/chat/completions", payload, api_key)
@@ -143,22 +111,18 @@ class LLMService:
                 return None
             parsed = self._validate(json.loads(content))
             usage = data.get("usage") or {}
-            usage_info = {
-                "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-                "output_tokens": usage.get("output_tokens", usage.get("completion_tokens", 0)),
-                "model": data.get("model", settings.llm_model),
-            }
+            usage_info = {"input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)), "output_tokens": usage.get("output_tokens", usage.get("completion_tokens", 0)), "model": data.get("model", settings.llm_model)}
             if parsed:
                 parsed["_usage"] = usage_info
                 return parsed
             return {"_invalid": True, "_usage": usage_info}
         except Exception as exc:
-            logger.exception("LLM request failed: %s", exc)
+            logger.warning("Tier 2 model request failed: %s", exc)
             return None
 
     @staticmethod
     def _extract_text(data: dict) -> str | None:
-        if "output_text" in data and data["output_text"]:
+        if data.get("output_text"):
             return data["output_text"]
         for item in data.get("output", []):
             for content in item.get("content", []):
@@ -171,34 +135,48 @@ class LLMService:
 
     @staticmethod
     def _validate(data: dict) -> dict | None:
-        allowed = {
-            "greeting", "thanks", "product_price", "product_availability",
-            "product_size", "product_color", "product_link", "product_alternatives",
-            "product_search", "location_query", "delivery_query", "order_request",
-            "return_request", "exchange_request", "human_handoff", "unknown",
-        }
-        intent = data.get("intent")
-        if intent not in allowed:
+        if not isinstance(data, dict):
+            return None
+        intent = canonical_intent(data.get("intent", "unknown"))
+        # Do not silently convert unsupported model labels into a real unknown result.
+        if str(data.get("intent", "unknown")).strip().lower() not in INTENTS and str(data.get("intent", "unknown")).strip().lower() not in {"size_availability", "color_availability", "order_link_request", "human_handover_request", "order_placement", "product_inquiry_query"}:
             return None
         entities = data.get("entities") or {}
         if not isinstance(entities, dict):
-            entities = {}
-        confidence = float(data.get("confidence", 0))
-        tool = data.get("tool", "none")
-        allowed_tools = {
-            "search_products", "get_product", "check_availability",
-            "get_business_info", "get_delivery_info",
-            "get_customer_context", "handoff_to_human", "none",
-        }
-        if tool not in allowed_tools:
-            tool = "none"
+            return None
+        clean_entities = {}
+        for key in ENTITY_KEYS:
+            value = entities.get(key)
+            if value is None or value == "" or value == []:
+                continue
+            if key in {"PRICE", "MIN_PRICE", "MAX_PRICE"}:
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    continue
+            if key == "QUANTITY":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    continue
+            if isinstance(value, str):
+                value = value.strip()[:160]
+            clean_entities[key] = value
+        try:
+            confidence = float(data.get("confidence", 0))
+        except (TypeError, ValueError):
+            return None
+        secondary = []
+        for label in data.get("secondary_intents", []) if isinstance(data.get("secondary_intents", []), list) else []:
+            canonical = canonical_intent(label)
+            if canonical != "unknown" and canonical != intent and canonical not in secondary:
+                secondary.append(canonical)
         return {
-            "intent": intent,
-            "entities": {k: v for k, v in entities.items() if v not in (None, "", [])},
-            "language": str(data.get("language", "Other")),
+            "intent": intent, "secondary_intents": secondary[:4], "entities": clean_entities,
+            "language": str(data.get("language", "Other"))[:40],
             "confidence": max(0.0, min(1.0, confidence)),
-            "tool": tool,
-            "tool_args": data.get("tool_args") if isinstance(data.get("tool_args"), dict) else {},
+            "needs_context": bool(data.get("needs_context", False)),
+            "clarification_required": bool(data.get("clarification_required", False)),
             "reason": str(data.get("reason", ""))[:300],
         }
 

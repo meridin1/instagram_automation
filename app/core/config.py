@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4.1-mini"
     llm_timeout_seconds: int = 20
     llm_max_output_tokens: int = 700
+    tier1_confidence_threshold: float = 0.65
+    tier2_confidence_threshold: float = 0.72
+
+    # Optional CLIP image-to-catalogue retrieval; heavyweight dependencies are separate.
+    visual_search_enabled: bool = False
+    clip_model_name: str = "openai/clip-vit-base-patch32"
+    visual_similarity_threshold: float = 0.72
+    visual_match_margin: float = 0.035
+    visual_image_max_bytes: int = 8 * 1024 * 1024
 
     log_level: str = "INFO"
 

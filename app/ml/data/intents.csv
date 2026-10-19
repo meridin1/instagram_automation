@@ -282,3 +282,73 @@ nanni,thanks
 1500 ullil enthelum undo?,product_search
 black kurti suggest cheyyamo?,product_search
 weddinginu suitable dress venam,product_search
+bye,goodbye
+goodbye,goodbye
+see you later,goodbye
+okay bye,goodbye
+pinne kanam,goodbye
+is this good quality,product_inquiry
+can you tell me about this,product_inquiry
+ee dress nallathano,product_inquiry
+is this available in cotton,product_inquiry
+what do you know about this item,product_inquiry
+what material is this,product_details
+which fabric is used,product_details
+is this pure cotton,product_details
+tell me the fabric details,product_details
+product details please,product_details
+how long does delivery take,delivery_time_query
+how many days for delivery,delivery_time_query
+eppol kittum delivery,delivery_time_query
+when will my parcel arrive,delivery_time_query
+what is the delivery time to kerala,delivery_time_query
+where is my order,order_status
+track my order,order_status
+order status please,order_status
+my order evide aanu,order_status
+can you check my order,order_status
+cancel my order,cancel_order
+please cancel the order,cancel_order
+order cancel cheyyanam,cancel_order
+i want to cancel this,cancel_order
+can i cancel my purchase,cancel_order
+I received the wrong item,complaint
+this product is damaged,complaint
+not what I ordered,complaint
+I am unhappy with this order,complaint
+quality is very bad,complaint
+do you have any discount,discount_inquiry
+any offers available,discount_inquiry
+can you reduce the price,discount_inquiry
+bulk order discount,discount_inquiry
+is there a sale now,discount_inquiry
+what payment methods do you accept,payment_query
+can i pay by upi,payment_query
+is cash on delivery available,payment_query
+how can i pay,payment_query
+can i pay online,payment_query
+my delivery is late,delivery_issue
+parcel not delivered,delivery_issue
+courier has not contacted me,delivery_issue
+my package is missing,delivery_issue
+delivery is delayed,delivery_issue
+what is your return policy,return_policy_query
+can i return this item,return_policy_query
+how many days for return,return_policy_query
+return rules please,return_policy_query
+is return available,return_policy_query
+what is your exchange policy,exchange_policy_query
+can i exchange this size,exchange_policy_query
+how many days for exchange,exchange_policy_query
+exchange rules please,exchange_policy_query
+is size exchange possible,exchange_policy_query
+compare these two kurtis,product_comparison
+which one is better,product_comparison
+what is the difference between these,product_comparison
+compare this with the blue one,product_comparison
+which design should i choose,product_comparison
+what product is in this photo,media_product_identification
+identify this dress from the picture,media_product_identification
+can you find this item from image,media_product_identification
+what is this kurti called,media_product_identification
+"I sent a photo, find this product",media_product_identification

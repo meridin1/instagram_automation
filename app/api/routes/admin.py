@@ -32,6 +32,7 @@ async def stats(user=Depends(get_admin_user)):
         "active_clients": await database.clients.count_documents({"is_system": {"$ne": True}, "active": {"$ne": False}}),
         "disabled_clients": await database.clients.count_documents({"is_system": {"$ne": True}, "active": False}),
         "users": await database.users.count_documents({}),
+        "pending_applications": await database.signup_applications.count_documents({"status": "pending"}),
         "products": await database.products.count_documents({}),
         "conversations": await database.conversations.count_documents({}),
         "messages": await database.messages.count_documents({}),
@@ -62,6 +63,138 @@ async def list_clients(user=Depends(get_admin_user)):
         result.append(item)
     return result
 
+
+
+
+@router.get("/applications")
+async def list_signup_applications(user=Depends(get_admin_user)):
+    """Return only pending applications; never expose password hashes."""
+    cursor = db().signup_applications.find({"status": "pending"}).sort("created_at", 1)
+    items = []
+    async for doc in cursor:
+        doc_id = str(doc.pop("_id"))
+        doc.pop("password_hash", None)
+        doc["id"] = doc_id
+        items.append(doc)
+    return items
+
+
+@router.post("/applications/{application_id}/approve")
+async def approve_signup_application(application_id: str, user=Depends(get_admin_user)):
+    database = db()
+    try:
+        oid = ObjectId(application_id)
+    except Exception as exc:
+        raise HTTPException(400, "Invalid application id") from exc
+
+    now = _now()
+    app_doc = await database.signup_applications.find_one_and_update(
+        {"_id": oid, "status": "pending"},
+        {"$set": {"status": "approving", "reviewed_at": now, "reviewed_by": user.get("email", "admin"), "updated_at": now}},
+        return_document=True,
+    )
+    if not app_doc:
+        raise HTTPException(404, "Pending application not found; it may already have been reviewed")
+
+    email = app_doc["email"].strip().lower()
+    username = (app_doc.get("instagram_username") or "").strip().lstrip("@").lower() or None
+    client_id = None
+    try:
+        if await database.users.find_one({"email": email}):
+            raise HTTPException(409, "An account with this email already exists")
+        if username and await database.clients.find_one({"instagram_username": username}):
+            raise HTTPException(409, "Instagram username is already registered")
+
+        client_doc = {
+            "name": app_doc["brand_name"],
+            "instagram_username": username,
+            "business_information": app_doc.get("business_information", ""),
+            "location": app_doc.get("location", ""),
+            "delivery_information": app_doc.get("delivery_information", ""),
+            "business_hours": app_doc.get("business_hours", ""),
+            "language": app_doc.get("language", "English"),
+            "tone": app_doc.get("tone", "Friendly"),
+            "automation_enabled": app_doc.get("automation_enabled", True),
+            "llm_enabled": app_doc.get("llm_enabled", False),
+            "rate_limit_per_minute": 60,
+            "monthly_llm_limit": 1000,
+            "monthly_llm_token_limit": 1000000,
+            "monthly_data_limit_mb": 1024,
+            "active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        client_result = await database.clients.insert_one(client_doc)
+        client_id = str(client_result.inserted_id)
+        await database.users.insert_one({
+            "client_id": client_id,
+            "email": email,
+            "password_hash": app_doc["password_hash"],
+            "role": "owner",
+            "active": True,
+            "created_at": now,
+            "updated_at": now,
+        })
+        await database.business_settings.update_one(
+            {"client_id": client_id},
+            {"$set": {
+                "client_id": client_id,
+                "business_information": app_doc.get("business_information", ""),
+                "location": app_doc.get("location", ""),
+                "delivery_info": app_doc.get("delivery_information", ""),
+                "business_hours": app_doc.get("business_hours", ""),
+                "contact": "",
+                "language": app_doc.get("language", "English"),
+                "tone": app_doc.get("tone", "Friendly"),
+                "updated_at": now,
+            }, "$setOnInsert": {"created_at": now}}, upsert=True,
+        )
+        await database.automation_settings.update_one(
+            {"client_id": client_id},
+            {"$set": {
+                "client_id": client_id,
+                "automation_enabled": app_doc.get("automation_enabled", True),
+                "llm_enabled": app_doc.get("llm_enabled", False),
+                "language": app_doc.get("language", "English"),
+                "tone": app_doc.get("tone", "Friendly"),
+                "human_handoff_on_unknown": True,
+                "low_confidence_threshold": 0.65,
+                "updated_at": now,
+            }, "$setOnInsert": {"created_at": now}}, upsert=True,
+        )
+        await database.signup_applications.update_one(
+            {"_id": oid, "status": "approving"},
+            {"$set": {"status": "approved", "client_id": client_id, "updated_at": _now()}, "$unset": {"password_hash": ""}},
+        )
+        return {"ok": True, "message": "Application approved and client workspace created.", "client_id": client_id, "email": email}
+    except Exception as exc:
+        # Best-effort rollback keeps a failed approval retryable and avoids partial accounts.
+        if client_id:
+            await database.users.delete_many({"client_id": client_id, "email": email})
+            await database.clients.delete_one({"_id": ObjectId(client_id)})
+            for collection in ("business_settings", "automation_settings"):
+                await database[collection].delete_one({"client_id": client_id})
+        await database.signup_applications.update_one(
+            {"_id": oid, "status": "approving"},
+            {"$set": {"status": "pending", "updated_at": _now()}, "$unset": {"reviewed_at": "", "reviewed_by": ""}},
+        )
+        if isinstance(exc, HTTPException):
+            raise exc
+        if isinstance(exc, DuplicateKeyError):
+            raise HTTPException(409, "Email or Instagram username is already registered") from exc
+        raise
+
+
+@router.post("/applications/{application_id}/reject")
+async def reject_signup_application(application_id: str, user=Depends(get_admin_user)):
+    try:
+        oid = ObjectId(application_id)
+    except Exception as exc:
+        raise HTTPException(400, "Invalid application id") from exc
+    result = await db().signup_applications.delete_one({"_id": oid, "status": "pending"})
+    if not result.deleted_count:
+        raise HTTPException(404, "Pending application not found; it may already have been reviewed")
+    return {"ok": True, "message": "Application rejected and removed.", "application_id": application_id}
 
 @router.get("/usage")
 async def usage_report(user=Depends(get_admin_user)):
@@ -102,7 +235,7 @@ async def create_client(payload: AdminClientCreate, user=Depends(get_admin_user)
         cr=await database.clients.insert_one(client); cid=str(cr.inserted_id)
         await database.users.insert_one({"client_id":cid,"email":email,"password_hash":hash_password(payload.password),"role":"owner","active":True,"created_at":now,"updated_at":now})
         await database.business_settings.update_one({"client_id":cid},{"$set":{"client_id":cid,"business_information":payload.business_information,"location":payload.location,"delivery_info":payload.delivery_information,"business_hours":payload.business_hours,"contact":"","language":payload.language,"tone":payload.tone,"updated_at":now},"$setOnInsert":{"created_at":now}},upsert=True)
-        await database.automation_settings.update_one({"client_id":cid},{"$set":{"client_id":cid,"automation_enabled":payload.automation_enabled,"llm_enabled":payload.llm_enabled,"language":payload.language,"tone":payload.tone,"human_handoff_on_unknown":True,"low_confidence_threshold":.55,"updated_at":now},"$setOnInsert":{"created_at":now}},upsert=True)
+        await database.automation_settings.update_one({"client_id":cid},{"$set":{"client_id":cid,"automation_enabled":payload.automation_enabled,"llm_enabled":payload.llm_enabled,"language":payload.language,"tone":payload.tone,"human_handoff_on_unknown":True,"low_confidence_threshold":.65,"updated_at":now},"$setOnInsert":{"created_at":now}},upsert=True)
     except DuplicateKeyError as exc: raise HTTPException(409,"Email or Instagram username already registered") from exc
     return {"ok":True,"client_id":cid,"email":email}
 

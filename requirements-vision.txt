@@ -1,0 +1,5 @@
+# Optional dependencies for CLIP image-to-catalogue retrieval.
+# For CPU-only PyTorch, install torch first from the official CPU wheel index:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+transformers>=4.44,<5
+Pillow>=10,<13

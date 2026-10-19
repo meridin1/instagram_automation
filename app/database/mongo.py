@@ -32,6 +32,8 @@ async def ensure_indexes():
     await database.clients.update_many({}, {"$unset": {"llm_api_key_encrypted": "", "llm_api_key": ""}})
     await database.clients.create_index("instagram_username", unique=True, sparse=True)
     await database.users.create_index("email", unique=True)
+    await database.signup_applications.create_index("email", unique=True, name="signup_application_email_unique")
+    await database.signup_applications.create_index([("status", 1), ("created_at", -1)])
     # MongoDB partial indexes do not support $ne. Remove legacy empty-string values first,
     # then enforce uniqueness only when sku is actually a string.
     await database.products.update_many({"sku": ""}, {"$unset": {"sku": ""}})

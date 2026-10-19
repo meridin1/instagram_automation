@@ -56,6 +56,17 @@ def _extract_message_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
             text = message.get("text")
             attachments = message.get("attachments") or []
+            image_url = None
+            attachment_type = None
+            for attachment in attachments:
+                if not isinstance(attachment, dict):
+                    continue
+                kind = str(attachment.get("type", "attachment")).lower()
+                if kind == "image" and not image_url:
+                    attachment_type = "image"
+                    image_url = (attachment.get("payload") or {}).get("url")
+                elif attachment_type is None:
+                    attachment_type = kind
 
             # Represent media as an internal marker. The conversation service
             # can decide how to process the marker.
@@ -89,6 +100,9 @@ def _extract_message_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     "text": text,
                     "message_id": message.get("mid"),
                     "timestamp": messaging.get("timestamp"),
+                    "image_url": image_url,
+                    "attachment_type": attachment_type,
+                    "has_image": bool(image_url),
                 }
             )
 
@@ -515,6 +529,7 @@ async def receive_webhook(client_id: str, request: Request):
                 text=event["text"],
                 send_to_instagram=True,
                 external_message_id=event.get("message_id"),
+                image_url=event.get("image_url"),
             )
 
             processed += 1
