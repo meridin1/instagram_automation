@@ -1,6 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.core.config import settings
-from datetime import datetime, timezone
 
 _client: AsyncIOMotorClient | None = None
 _database: AsyncIOMotorDatabase | None = None
