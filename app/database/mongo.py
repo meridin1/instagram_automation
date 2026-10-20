@@ -42,6 +42,21 @@ async def ensure_indexes():
     await database.products.create_index([("client_id", 1), ("active", 1)])
     await database.products.create_index([("client_id", 1), ("category", 1)])
     await database.products.create_index([("client_id", 1), ("name", 1)])
+    await database.catalogue_options.create_index([("type", 1), ("value_key", 1)], unique=True, partialFilterExpression={"active": True}, name="catalogue_option_type_value_unique")
+    # Seed useful clothing-store choices once per option type; admins can add more at any time.
+    defaults = {
+        "department": ["Women", "Men", "Kids", "Unisex"],
+        "category": ["Clothing", "Ethnic Wear", "Western Wear", "Tops", "Bottoms", "Dresses", "Accessories"],
+        "subcategory": ["Shirts", "T-shirts", "Kurtis", "Jeans", "Trousers", "Maxi Dresses", "Co-ord Sets", "Palazzos"],
+        "product_type": ["Shirt", "T-shirt", "Kurti", "Jeans", "Trousers", "Dress", "Maxi Dress", "Co-ord Set", "Top", "Skirt", "Leggings"],
+        "target_gender": ["Women", "Men", "Girls", "Boys", "Unisex"],
+        "color": ["Black", "White", "Blue", "Navy Blue", "Red", "Green", "Pink", "Yellow", "Beige", "Brown", "Grey", "Purple", "Maroon", "Orange"],
+        "size": ["XS", "S", "M", "L", "XL", "XXL", "28", "30", "32", "34", "36", "38", "40", "42"],
+    }
+    for kind, values in defaults.items():
+        if await database.catalogue_options.count_documents({"type": kind}) == 0:
+            now = datetime.now(timezone.utc)
+            await database.catalogue_options.insert_many([{"type": kind, "value": value, "value_key": value.casefold(), "parent": None, "active": True, "created_at": now, "updated_at": now} for value in values])
     # Encrypt any legacy Instagram tokens that were stored in plaintext by older builds.
     from app.services.secret_service import encrypt_secret
     legacy_tokens = database.instagram_accounts.find({"access_token": {"$type": "string", "$ne": ""}, "access_token_encrypted": {"$exists": False}})

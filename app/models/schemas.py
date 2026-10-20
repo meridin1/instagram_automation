@@ -84,6 +84,10 @@ class ProductCreate(BaseModel):
     price: float = Field(ge=0)
     sale_price: Optional[float] = Field(default=None, ge=0)
     category: str = ""
+    department: str = ""
+    subcategory: str = ""
+    product_type: str = ""
+    target_gender: str = ""
     brand: str = ""
     description: str = ""
     sizes: list[str] = Field(default_factory=list)
@@ -110,6 +114,10 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = Field(default=None, ge=0)
     sale_price: Optional[float] = Field(default=None, ge=0)
     category: Optional[str] = None
+    department: Optional[str] = None
+    subcategory: Optional[str] = None
+    product_type: Optional[str] = None
+    target_gender: Optional[str] = None
     brand: Optional[str] = None
     description: Optional[str] = None
     sizes: Optional[list[str]] = None

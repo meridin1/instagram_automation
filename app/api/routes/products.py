@@ -38,6 +38,10 @@ async def list_products(
             {"name": {"$regex": q, "$options": "i"}},
             {"sku": {"$regex": q, "$options": "i"}},
             {"category": {"$regex": q, "$options": "i"}},
+            {"department": {"$regex": q, "$options": "i"}},
+            {"subcategory": {"$regex": q, "$options": "i"}},
+            {"product_type": {"$regex": q, "$options": "i"}},
+            {"target_gender": {"$regex": q, "$options": "i"}},
             {"brand": {"$regex": q, "$options": "i"}},
         ]
     if category:

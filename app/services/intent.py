@@ -266,7 +266,7 @@ def detect(text: str, product: dict | None = None) -> IntentResult:
         )
 
     if product:
-        product_text = " ".join([product.get("name", ""), product.get("category", ""), product.get("brand", "")]).lower()
+        product_text = " ".join([product.get("name", ""), product.get("category", ""), product.get("subcategory", ""), product.get("product_type", ""), product.get("department", ""), product.get("brand", "")]).lower()
         if any(token in normalized for token in product_text.split() if len(token) > 2):
             return IntentResult("product_search", 0.60, "context", entities, entities.get("PRICE"))
 

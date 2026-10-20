@@ -8,6 +8,10 @@ def _text(product: dict) -> str:
         str(x) for x in [
             product.get("name", ""),
             product.get("category", ""),
+            product.get("department", ""),
+            product.get("subcategory", ""),
+            product.get("product_type", ""),
+            product.get("target_gender", ""),
             product.get("brand", ""),
             product.get("description", ""),
             " ".join(product.get("colors", []) or []),
@@ -55,7 +59,7 @@ def _passes_filters(product: dict, entities: dict) -> bool:
     if size and size not in [str(x).upper() for x in (product.get("sizes", []) or [])]:
         return False
     if category:
-        category_text = " ".join(str(product.get(key, "") or "") for key in ("category", "name", "description")).lower()
+        category_text = " ".join(str(product.get(key, "") or "") for key in ("category", "subcategory", "product_type", "department", "name", "description")).lower()
         if category not in category_text:
             return False
     if brand and brand not in str(product.get("brand", "")).lower():
