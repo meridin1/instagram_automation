@@ -1,3 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 :root{--bg:#090b0e;--panel:#10141a;--line:#252b34;--muted:#8b929d;--text:#f4f5f6;--accent:#ffe600;--green:#45d483;--red:#ff6675;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button,input,textarea,select{font:inherit}.wrap{max-width:1380px;margin:auto;padding:25px}.top{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 25px;background:#0b0e12;gap:25px;position:sticky;top:0;z-index:10}.brand{font-weight:900;letter-spacing:.18em}.top span{color:#8e96a0;font-size:12px}.top button{margin-left:auto}.btn{border:0;border-radius:9px;padding:9px 13px;background:#1b2027;color:#ddd;font-weight:700;font-size:12px;cursor:pointer}.btn.primary{background:var(--accent);color:#000}.btn.danger{background:#35181d;color:#ff9da6}.btn.success{background:#123321;color:#7de9a8}.page{display:flex;gap:22px}.side{width:210px;flex:none}.side button{width:100%;text-align:left;background:transparent;border:0;color:#858d97;padding:11px;border-radius:9px;cursor:pointer}.side button.active,.side button:hover{background:#171c23;color:#fff}.main{flex:1;min-width:0}.head{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.eyebrow{font-size:10px;letter-spacing:.14em;color:var(--accent);font-weight:800;text-transform:uppercase}.title{font-size:29px;letter-spacing:-.04em;margin:5px 0}.sub{color:var(--muted);font-size:12px}.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(4,1fr)}.card{background:linear-gradient(180deg,#11151b,#0e1217);border:1px solid var(--line);border-radius:16px;padding:18px}.klabel{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#747c86}.kvalue{font-size:26px;font-weight:800;margin-top:8px}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:12px}.table th{color:#707984;font-size:10px;text-transform:uppercase;text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}.table td{padding:12px 8px;border-bottom:1px solid #1d2229}.badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800;background:#191e26;color:#aeb5be}.green{background:#102b1d;color:#72e4a1}.red{background:#34171c;color:#ff9ba5}.yellow{background:#302c08;color:#ffe600}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.input{background:#0a0d11;border:1px solid #2a3038;color:#fff;border-radius:9px;padding:10px;width:300px;outline:none}.modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:grid;place-items:center;padding:20px;z-index:20}.modalbox{width:min(620px,100%);max-height:90vh;overflow:auto;background:#10141a;border:1px solid var(--line);border-radius:18px;padding:20px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;color:#9ba2ac;font-size:11px;margin-bottom:6px}.field.full{grid-column:1/-1}.field input,.field textarea,.field select{width:100%;background:#0a0d11;border:1px solid #2a3038;color:#fff;border-radius:9px;padding:10px;outline:none}.field textarea{resize:vertical}.empty{text-align:center;padding:45px;color:#747c86}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 70% 20%,#252300 0,#090b0e 35%)}.loginbox{width:min(420px,100%);background:#10141a;border:1px solid var(--line);border-radius:20px;padding:30px}.logo{width:46px;height:46px;background:var(--accent);color:#000;border-radius:13px;display:grid;place-items:center;font-weight:900;font-size:22px;margin-bottom:20px}.login h1{margin:0;font-size:27px}.login p{font-size:13px;color:var(--muted);line-height:1.6}.login input{width:100%;background:#0a0d11;border:1px solid #2a3038;color:#fff;border-radius:9px;padding:11px;margin:7px 0 12px}.error{background:#35181d;color:#ff9da6;border:1px solid #673039;padding:10px;border-radius:9px;font-size:12px;margin:10px 0}.toast{position:fixed;right:20px;bottom:20px;background:#151a21;border:1px solid #3b424c;padding:11px 14px;border-radius:10px;font-size:12px}@media(max-width:900px){.page{display:block}.side{width:auto;display:flex;overflow:auto;margin-bottom:18px;gap:5px}.side button{width:auto;white-space:nowrap}.kpis{grid-template-columns:1fr 1fr}}@media(max-width:600px){.wrap{padding:16px}.kpis,.formgrid{grid-template-columns:1fr}.head{align-items:flex-start;gap:12px;flex-direction:column}.input{width:100%}}
 
 .nav-badge{display:none;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#dc2626;color:white;font-size:11px;font-weight:700;margin-left:5px}
+
+
+/* Meridin design refresh inspired by the supplied ApexCRM reference.
+   Styling only: existing screens, routes, controls and behaviour are preserved. */
+:root{--bg:#eef2ec;--panel:#ffffff;--line:#e3e8e0;--muted:#7b847e;--text:#202820;--accent:#17251e;--green:#16835b;--red:#c94855;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+body{background:radial-gradient(ellipse at 12% 0%,#f9fbf7 0,transparent 45%),var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif}
+.top{background:rgba(255,255,255,.84);backdrop-filter:blur(18px);border-bottom-color:rgba(24,39,30,.08);box-shadow:0 1px 0 rgba(24,39,30,.02)}
+.brand{letter-spacing:-.04em;font-size:17px;color:#17251e}
+.top span,.sub{color:#778078}
+.wrap{max-width:1480px;padding:28px}
+.page{gap:24px}
+.side{width:220px;padding:14px 10px;background:rgba(255,255,255,.58);border:1px solid rgba(255,255,255,.9);border-radius:22px;align-self:flex-start;position:sticky;top:88px}
+.side button{color:#657068;padding:11px 13px;border-radius:12px;font-size:12px;font-weight:600;transition:background .18s,color .18s}
+.side button.active,.side button:hover{background:#17251e;color:#fff;box-shadow:0 5px 14px rgba(23,37,30,.12)}
+.main{min-width:0}
+.head{align-items:center;margin-bottom:25px}
+.eyebrow{color:#68806e;letter-spacing:.13em}
+.title{font-size:30px;letter-spacing:-.055em;color:#1d2921}
+.card{background:rgba(255,255,255,.84);border:1px solid rgba(255,255,255,.95);border-radius:22px;box-shadow:0 5px 24px rgba(31,47,35,.045);background-image:none}
+.klabel{color:#7a847c;letter-spacing:.1em}
+.kvalue{color:#17251e;letter-spacing:-.05em;font-size:29px}
+.table th{color:#828b83;border-bottom-color:#e8ece6}
+.table td{border-bottom-color:#edf0eb;color:#3c473f}
+.table tbody tr:hover{background:#f8faf6}
+.badge{background:#edf0eb;color:#687269}
+.green,.badge.green{background:#e2f5e9;color:#18774d}
+.red,.badge.red{background:#fde9e9;color:#b93b48}
+.yellow,.badge.yellow{background:#f9f0d8;color:#8a6817}
+.toolbar{gap:10px}
+.btn{background:#edf0eb;color:#344137;border-radius:11px;padding:10px 14px;font-size:12px;transition:transform .15s,background .15s;box-shadow:0 1px 1px rgba(20,30,20,.02)}
+.btn:hover{background:#e3e9e0;transform:translateY(-1px)}
+.btn.primary{background:#17251e;color:#fff}
+.btn.primary:hover{background:#293d31}
+.btn.danger{background:#fde9e9;color:#b93b48}
+.btn.success{background:#e2f5e9;color:#18774d}
+.input,.field input,.field textarea,.field select{background:#fbfcfa;border:1px solid #dfe5dd;color:#263329;border-radius:12px}
+.input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#9aa99a;box-shadow:0 0 0 3px rgba(97,132,102,.12)}
+.field label{color:#68746b;font-weight:600}
+.modal{background:rgba(24,35,27,.35);backdrop-filter:blur(8px)}
+.modalbox{background:#fdfefc;border:1px solid #fff;border-radius:24px;box-shadow:0 24px 80px rgba(25,38,28,.2)}
+.login{background:radial-gradient(circle at 70% 20%,#dce8d8 0,#eef2ec 45%)}
+.loginbox{background:rgba(255,255,255,.9);border:1px solid #fff;border-radius:26px;box-shadow:0 20px 60px rgba(31,47,35,.08)}
+.logo{background:#17251e;color:#fff;border-radius:15px}
+.login input{background:#fbfcfa;border:1px solid #dfe5dd;color:#263329;border-radius:12px}
+.error{background:#fde9e9;color:#b93b48;border-color:#f4c8cb}
+.toast{background:#17251e;color:#fff;border-color:#34483a;border-radius:14px;box-shadow:0 12px 36px rgba(20,35,25,.18)}
+@media(max-width:900px){.side{position:static;background:rgba(255,255,255,.7);border-radius:16px;padding:8px}}
+@media(max-width:600px){.wrap{padding:16px}.title{font-size:25px}}
+
+
+/* Collapsible icon-first admin sidebar and readable light-theme controls. */
+.top{background:rgba(255,255,255,.92);color:#20352a}.brand{display:flex;align-items:center;letter-spacing:0}.brand img{width:116px;height:38px;object-fit:contain;object-position:left center}.top span{color:#68756c}
+.wrap{max-width:none;padding:24px 28px}.page{gap:22px;min-height:calc(100vh - 120px)}
+.side{width:70px;flex:0 0 70px;padding:14px 8px;transition:width .2s ease;overflow:hidden}.side:hover{width:220px;flex-basis:220px}.sidebar-caption{white-space:nowrap;opacity:0;height:18px;overflow:hidden}.side:hover .sidebar-caption{opacity:1}.side button{display:flex;align-items:center;justify-content:center;gap:12px;min-height:44px;white-space:nowrap;padding:10px 9px;overflow:hidden}.side:hover button{justify-content:flex-start;padding:10px 12px}.side .nav-icon{font-size:19px;min-width:25px;width:25px;text-align:center}.side .nav-label{width:0;opacity:0;overflow:hidden}.side:hover .nav-label{width:auto;opacity:1}.side button.active,.side button:hover{background:#17251e;color:#fff}.side .nav-badge{flex:none}.main{min-width:0}.card{background:#fff;color:#253329;border-color:#e1e7df;box-shadow:0 7px 24px rgba(31,48,34,.045)}.card h3,.title{color:#203128}.sub,.klabel{color:#627066}.table th{color:#5d6b61}.table td{color:#2b382e;border-bottom-color:#e7ece5}.field label{color:#526156}.input,.field input,.field textarea,.field select{background:#fff;color:#202a22;border-color:#d6dfd5}.badge{background:#edf1eb;color:#526156}.nav-badge{background:#c83d4c;color:#fff}.loginbox .logo img{width:100%;height:100%;object-fit:contain}.logo{padding:4px;background:#fff;border:1px solid #e2e8e0}
+@media(max-width:900px){.page{display:flex;gap:14px}.side{width:58px;flex-basis:58px;display:flex;flex-direction:column;position:sticky;top:80px;margin:0}.side:hover{width:190px;flex-basis:190px}.side button{width:100%;flex:none}.wrap{padding:18px}.side button .nav-label{display:none}.side:hover button .nav-label{display:inline}.sidebar-caption{display:none}.side:hover .sidebar-caption{display:block}.main{flex:1}}
+@media(max-width:600px){.top{padding:0 14px}.top>span{display:none}.wrap{padding:12px}.page{gap:8px}.side{width:48px;flex-basis:48px;padding:8px 4px}.side:hover{width:170px;flex-basis:170px}.side button{padding:9px 5px}}
+
+/* Monochrome modern navigation icon finish. */
+.side button .nav-icon{display:inline-grid;place-items:center;width:24px;height:24px;vertical-align:middle;margin-right:8px;color:inherit}
+.side button .nav-icon svg{display:block;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 0 rgba(255,255,255,.85));transition:transform .16s ease,stroke-width .16s ease}
+.side button:hover .nav-icon svg,.side button.active .nav-icon svg{transform:translateY(-1px);stroke-width:2}
+
+/* Keep admin sign-out in the same bottom-left sidebar position as the client dashboard. */
+.page{align-items:stretch}
+.side{display:flex;flex-direction:column;min-height:calc(100vh - 150px)}
+.side-bottom{margin-top:auto;padding-top:14px;border-top:1px solid #e7ece5}
+.side-bottom button{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;min-height:44px;background:transparent;border:0;color:#657068;border-radius:12px;padding:10px 9px;text-align:left;white-space:nowrap;overflow:hidden}
+.side:hover .side-bottom button{justify-content:flex-start;padding:10px 12px}
+.side-bottom button:hover{background:#fde9e9;color:#b93b48}
+.side-bottom .nav-icon{display:inline-grid;place-items:center;width:24px;height:24px;min-width:25px;color:inherit}
+.side-bottom .nav-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.side-bottom .nav-label{width:0;opacity:0;overflow:hidden}
+.side:hover .side-bottom .nav-label{width:auto;opacity:1}
+@media(max-width:900px){.side{min-height:calc(100vh - 160px)}}
+
+/* Admin login matches the light sage dashboard and displays the real brand logo. */
+.login{background:radial-gradient(ellipse at 12% 0%,#f9fbf7 0,transparent 45%),#eef2ec;color:#202820}
+.loginbox{background:rgba(255,255,255,.92);border:1px solid #fff;border-radius:26px;box-shadow:0 20px 60px rgba(31,47,35,.08)}
+.login .logo{width:76px;height:76px;display:grid;place-items:center;background:#fff;border:1px solid #e2e8e0;border-radius:18px;padding:7px;overflow:hidden;margin-bottom:22px}
+.login .logo img{display:block;width:100%;height:100%;object-fit:contain}
+.login h1{color:#1d2921}
+.login p{color:#68746b}
+.login .eyebrow{color:#68806e}
+.login input{background:#fbfcfa;border:1px solid #dfe5dd;color:#263329}
+.login input::placeholder{color:#89948a}
+.login .error{background:#fde9e9;border-color:#f4caca;color:#a92f3b}
+
+
+/* Mobile admin navigation: fixed, scrollable bottom icon bar instead of a cramped side rail. */
+@media (max-width: 600px) {
+  .top { height:58px; min-height:58px; gap:10px; }
+  .top .brand img { width:100px; max-width:36vw; }
+  .page { display:block; min-height:0; }
+  .side, .side:hover {
+    position:fixed; inset:auto 0 0 0; z-index:40; width:100%; height:auto; min-height:66px;
+    margin:0; padding:7px 8px max(7px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:6px;
+    overflow-x:auto; overflow-y:hidden; background:rgba(255,255,255,.97);
+    border-top:1px solid #dfe6dd; border-radius:0; box-shadow:0 -8px 26px rgba(27,48,31,.09);
+    backdrop-filter:blur(14px); scrollbar-width:none;
+  }
+  .side::-webkit-scrollbar { display:none; }
+  .side button, .side:hover button {
+    flex:0 0 48px; width:48px; min-width:48px; height:48px; min-height:48px;
+    margin:0; padding:0; display:flex; align-items:center; justify-content:center;
+    border-radius:13px; white-space:nowrap;
+  }
+  .side .nav-label, .side:hover .nav-label, .sidebar-caption, .side:hover .sidebar-caption {
+    display:none !important; width:0; opacity:0;
+  }
+  .side .nav-icon { margin:0; width:24px; min-width:24px; }
+  .side-bottom, .side:hover .side-bottom {
+    flex:0 0 auto; width:auto; margin:0; padding:0 0 0 5px;
+    border-top:0; border-left:1px solid #e5ebe3;
+  }
+  .side-bottom button, .side:hover .side-bottom button {
+    width:46px; min-width:46px; height:46px; min-height:46px; padding:0; justify-content:center;
+  }
+  .side-bottom .nav-label { display:none !important; }
+  .main { min-width:0; width:100%; padding-bottom:84px; }
+  .wrap { padding:12px 12px 28px; }
+  .head { gap:10px; }
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .formgrid { grid-template-columns:minmax(0,1fr); }
+  .field.full { grid-column:auto; }
+  .modal { padding:10px; }
+  .modalbox { padding:16px; max-height:calc(100dvh - 20px); }
+}
+@media (max-width: 380px) {
+  .side, .side:hover { padding-left:5px; padding-right:5px; gap:2px; }
+  .side button, .side:hover button { flex-basis:42px; width:42px; min-width:42px; height:44px; min-height:44px; }
+  .side-bottom, .side:hover .side-bottom { padding-left:3px; }
+  .side-bottom button, .side:hover .side-bottom button { width:40px; min-width:40px; height:44px; min-height:44px; }
+  .kpis { grid-template-columns:minmax(0,1fr); }
+}

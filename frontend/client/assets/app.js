@@ -19,7 +19,7 @@
 
   function renderLogin(error=''){
     $('#app').innerHTML=`<div class="login"><div class="login-box">
-      <div class="login-logo">M</div><div class="eyebrow">MERIDIN</div><h1>Instagram Automation</h1>
+      <div class="login-logo"><img src="/dashboard/assets/meridin-logo.png" alt="Meridin"></div><div class="eyebrow">MERIDIN</div><h1>Instagram Automation</h1>
       <p>Sign in to manage your Instagram DMs, catalogue and automation.</p>
       <form id="loginForm"><div class="field"><label>Email</label><input class="input" id="email" type="email" required autocomplete="email"></div>
       <div class="field"><label>Password</label><input class="input" id="password" type="password" required autocomplete="current-password"></div>
@@ -30,7 +30,7 @@
     $('#registerLink').onclick=renderRegister;
   }
   function renderRegister(error=''){
-    $('#app').innerHTML=`<div class="login"><div class="login-box"><div class="login-logo">M</div><div class="eyebrow">MERIDIN</div><h1>Create workspace</h1><p>Set up your brand workspace. You can add your Instagram credentials after signing in.</p>
+    $('#app').innerHTML=`<div class="login"><div class="login-box"><div class="login-logo"><img src="/dashboard/assets/meridin-logo.png" alt="Meridin"></div><div class="eyebrow">MERIDIN</div><h1>Create workspace</h1><p>Set up your brand workspace. You can add your Instagram credentials after signing in.</p>
       <form id="regForm"><div class="field"><label>Brand name</label><input class="input" id="brand" required></div><div class="field"><label>Email</label><input class="input" id="email" type="email" required></div><div class="field"><label>Password</label><input class="input" id="password" type="password" minlength="8" required></div><div class="field"><label>Instagram username</label><input class="input" id="ig" placeholder="@yourbrand"></div>${error?`<div class="error">${esc(error)}</div>`:''}<button class="btn primary" type="submit">Create workspace</button></form><div class="switch">Already have an account? <button class="link" id="back">Sign in</button></div>
     </div></div>`;
     $('#back').onclick=()=>renderLogin();
@@ -39,7 +39,7 @@
 
 
   function renderPending(message, email=''){
-    $('#app').innerHTML=`<div class="login"><div class="login-box"><div class="login-logo">M</div><div class="eyebrow">MERIDIN / APPLICATION STATUS</div><h1>Application pending</h1><p>${esc(message||'Your application is waiting for admin approval.')}</p><div class="card" style="padding:14px;margin:16px 0"><div class="sub">Application email</div><strong>${esc(email)}</strong><div class="sub" style="margin-top:8px">You can sign in after Meridin approves your application. Please do not submit another application with this email.</div></div><button class="btn primary" id="pendingSignIn" style="width:100%">Back to sign in</button></div></div>`;
+    $('#app').innerHTML=`<div class="login"><div class="login-box"><div class="login-logo"><img src="/dashboard/assets/meridin-logo.png" alt="Meridin"></div><div class="eyebrow">MERIDIN / APPLICATION STATUS</div><h1>Application pending</h1><p>${esc(message||'Your application is waiting for admin approval.')}</p><div class="card" style="padding:14px;margin:16px 0"><div class="sub">Application email</div><strong>${esc(email)}</strong><div class="sub" style="margin-top:8px">You can sign in after Meridin approves your application. Please do not submit another application with this email.</div></div><button class="btn primary" id="pendingSignIn" style="width:100%">Back to sign in</button></div></div>`;
     $('#pendingSignIn').onclick=()=>renderLogin();
   }
 
@@ -53,9 +53,9 @@
   }
   function renderShell(){
     const c=state.client||{};
-    $('#app').innerHTML=`<div class="shell"><header class="topbar"><div class="brand">MERIDIN</div><nav class="nav">${[['dashboard','Overview'],['catalogue','Catalogue'],['conversations','Inbox'],['instagram','Instagram'],['settings','Settings']].map(x=>`<button data-tab="${x[0]}">${x[1]}</button>`).join('')}</nav><div class="profile"><button class="profile-btn" id="profileBtn"><span class="avatar">${initials(c.name||c.brand_name)}</span><span class="profile-name">${esc(c.name||c.brand_name||'Brand')}</span></button><div class="menu hidden" id="profileMenu"><button id="logout">Sign out</button></div></div></header><div class="statusbar"><span><i class="dot"></i>Meridin backend connected</span><span>${state.accounts[0]?`Instagram: @${esc(state.accounts[0].username)}`:'Instagram not connected'} &nbsp;·&nbsp; Automation: ${state.automation?.automation_enabled?'Active':'Paused'}</span></div><main class="container" id="content"></main></div>`;
+    $('#app').innerHTML=`<div class="shell app-shell"><aside class="app-sidebar"><div class="sidebar-logo"><img src="/dashboard/assets/meridin-logo.png" alt="Meridin"></div><nav class="nav">${[['dashboard','<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>','Overview'],['catalogue','<svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="m4.5 7.5 7.5 4.3 7.5-4.3M12 12v9"/></svg>','Catalogue'],['conversations','<svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.2A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 10h8M8 13.5h5"/></svg>','Inbox'],['instagram','<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.8" r=".8" fill="currentColor" stroke="none"/></svg>','Instagram'],['settings','<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1 1.8-2 3.4-2.1-.6a8 8 0 0 1-2 .9L14 22h-4l-.5-1.4a8 8 0 0 1-2-.9l-2.1.6-2-3.4L4.5 15a8 8 0 0 1 0-2l-1.1-1.8 2-3.4 2.1.6a8 8 0 0 1 2-.9L10 6h4l.5 1.5a8 8 0 0 1 2 .9l2.1-.6 2 3.4-1.1 1.8a8 8 0 0 1-.1 2Z" transform="translate(0 -2)"/></svg>','Settings']].map(x=>`<button data-tab="${x[0]}" title="${x[2]}" aria-label="${x[2]}"><span class="nav-icon">${x[1]}</span><span class="nav-label">${x[2]}</span></button>`).join('')}</nav><div class="sidebar-bottom"><button class="sidebar-logout" id="logout" title="Sign out" aria-label="Sign out"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M13 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span class="nav-label">Sign out</span></button></div></aside><section class="app-main"><header class="topbar"><div class="topbar-context"><span class="brand-context">${esc(c.name||c.brand_name||'Workspace')}</span><span class="topbar-caption">Instagram automation</span></div></header><div class="statusbar"><span><i class="dot"></i>Meridin backend connected</span><span>${state.accounts[0]?`Instagram: @${esc(state.accounts[0].username)}`:'Instagram not connected'} &nbsp;·&nbsp; Automation: ${state.automation?.automation_enabled?'Active':'Paused'}</span></div><main class="container" id="content"></main></section></div>`;
     document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;render()});
-    $('#profileBtn').onclick=()=>$('#profileMenu').classList.toggle('hidden');$('#logout').onclick=logout;
+    $('#logout').onclick=logout;
   }
   function render(){ document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===state.tab)); const c=$('#content'); if(state.tab==='dashboard')c.innerHTML=dashboard(); if(state.tab==='catalogue')c.innerHTML=catalogue(); if(state.tab==='conversations')c.innerHTML=inbox(); if(state.tab==='instagram')c.innerHTML=instagram(); if(state.tab==='settings')c.innerHTML=settings(); bind(); }
 
