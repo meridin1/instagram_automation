@@ -1,10 +1,13 @@
 """Cloudflare R2 object storage for product images (S3-compatible API)."""
 import asyncio
+import logging
 import uuid
 from urllib.parse import quote
 
 from fastapi import HTTPException, UploadFile
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_TYPES = {
     "image/jpeg": ".jpg",
@@ -55,7 +58,37 @@ async def upload_product_image(client_id: str, file: UploadFile) -> dict:
     try:
         await asyncio.to_thread(_upload_bytes, data, key, content_type)
     except Exception as exc:
-        # Keep credentials and provider internals out of client-facing error messages.
-        raise HTTPException(502, "Cloudflare R2 could not store the image. Check the R2 credentials, bucket name, and permissions.") from exc
+        # Log provider diagnostics server-side, without logging credentials, image data,
+        # signed headers, or the full request. Keep the response generic for clients.
+        try:
+            from botocore.exceptions import ClientError, BotoCoreError
+
+            if isinstance(exc, ClientError):
+                error = exc.response.get("Error", {})
+                metadata = exc.response.get("ResponseMetadata", {})
+                logger.error(
+                    "R2 product image upload rejected: error_code=%s http_status=%s request_id=%s bucket_configured=true object_key=%s",
+                    error.get("Code", "Unknown"),
+                    metadata.get("HTTPStatusCode", "Unknown"),
+                    metadata.get("RequestId", "Unknown"),
+                    key,
+                )
+            elif isinstance(exc, BotoCoreError):
+                logger.warning(
+                    "R2 product image upload SDK/client failure: exception_type=%s object_key=%s message=%s",
+                    type(exc).__name__, key, str(exc)[:300],
+                )
+            else:
+                logger.exception(
+                    "Unexpected R2 product image upload failure: exception_type=%s object_key=%s",
+                    type(exc).__name__, key,
+                )
+        except Exception:
+            # Diagnostics must never mask the original upload error.
+            logger.error("R2 product image upload failed; diagnostic logging also failed")
+        raise HTTPException(
+            502,
+            "Cloudflare R2 could not store the image. Check the Render logs for the R2 error code.",
+        ) from exc
     base = settings.r2_public_base_url.rstrip("/")
     return {"url": f"{base}/{quote(key, safe='/')}", "key": key, "content_type": content_type, "size": len(data)}
