@@ -74,3 +74,6 @@ async def ensure_indexes():
     await database.client_rate_windows.create_index([("client_id", 1), ("window", 1)], unique=True)
     await database.client_rate_windows.create_index("created_at", expireAfterSeconds=7200)
     await database.llm_usage_events.create_index([("client_id", 1), ("created_at", -1)])
+    await database.knowledge_documents.create_index([("client_id", 1), ("active", 1), ("updated_at", -1)])
+    await database.ai_evaluation_events.create_index([("client_id", 1), ("created_at", -1)])
+

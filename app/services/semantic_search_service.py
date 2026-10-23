@@ -84,6 +84,7 @@ async def search_products(
     entities: dict | None = None,
     limit: int = 5,
     exclude_product_id: str | None = None,
+    offset: int = 0,
 ):
     """Tenant-scoped catalogue search using weighted lexical matching."""
     entities = entities or {}
@@ -100,7 +101,7 @@ async def search_products(
 
     query_tokens = _tokens(query)
     if not query_tokens:
-        return docs[:max(1, min(int(limit), 50))]
+        return docs[max(0, int(offset)):max(0, int(offset)) + max(1, min(int(limit), 50))]
     q_counter = Counter(query_tokens)
     scored = []
     query_lower = (query or "").strip().lower()
@@ -122,4 +123,4 @@ async def search_products(
     # If entities filter the catalogue and all products have score zero, return filtered matches.
     if not matched and entities:
         matched = [product for _, product in scored]
-    return matched[:max_results]
+    return matched[max(0, int(offset)):max(0, int(offset)) + max_results]

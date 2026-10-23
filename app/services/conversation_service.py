@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import asyncio
+import time
 from bson import ObjectId
 from app.database.mongo import db
 from app.services.product_service import get_product
@@ -94,6 +95,18 @@ async def process_inbound(
         return {"status": "human", "reply": None, "intent": "human_handoff", "conversation_id": str(convo["_id"])}
 
     context = dict(convo.get("context", {}))
+    # Add a short, tenant/conversation-scoped window so follow-ups like "what about blue?"
+    # can be interpreted without sending an unbounded conversation transcript.
+    history_cursor = database.messages.find(
+        {"client_id": client_id, "conversation_id": convo["_id"]},
+        {"direction": 1, "text": 1, "intent": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(8)
+    history = [m async for m in history_cursor]
+    history.reverse()
+    context["recent_messages"] = [
+        {"role": "customer" if m.get("direction") == "inbound" else "shop", "text": str(m.get("text", ""))[:500], "intent": m.get("intent")}
+        for m in history
+    ]
     context_product_id = product_id or context.get("product_id") or (str(source_product["_id"]) if source_product else None)
     product = await get_product(client_id, context_product_id)
 
@@ -106,6 +119,7 @@ async def process_inbound(
         from app.services.visual_search_service import image_url_embedding
         visual_vector_task = image_url_embedding(image_url, meta_only=True)
 
+    inference_started = time.monotonic()
     if visual_vector_task is not None:
         intent, visual_vector = await asyncio.gather(
             understand(text, product, context, bool(automation.get("llm_enabled", False)), client_id=client_id),
@@ -114,6 +128,7 @@ async def process_inbound(
     else:
         intent = await understand(text, product, context, bool(automation.get("llm_enabled", False)), client_id=client_id)
         visual_vector = None
+    inference_latency_ms = int((time.monotonic() - inference_started) * 1000)
 
     visual_candidates = []
     visual_filtered_candidates = []
@@ -154,14 +169,32 @@ async def process_inbound(
             return {"status": "duplicate", "reply": None}
         raise
 
+    response_started = time.monotonic()
     reply, status = await build_response(
         client_id, intent, product, text,
         visual_candidates=visual_candidates,
         visual_filtered_candidates=visual_filtered_candidates,
         has_image=bool(image_url),
+        context=context,
     )
+    response_latency_ms = int((time.monotonic() - response_started) * 1000)
+    try:
+        await database.ai_evaluation_events.insert_one({
+            "client_id": client_id, "conversation_id": convo["_id"], "event": "message_processed",
+            "intent": intent.intent, "intent_source": intent.source, "intent_confidence": float(intent.confidence),
+            "has_image": bool(image_url), "outcome": status,
+            "catalogue_match_count": len(visual_filtered_candidates),
+            "inference_latency_ms": inference_latency_ms, "response_latency_ms": response_latency_ms,
+            "reply_length": len(reply or ""), "customer_text": str(text or "")[:500], "reply_text": str(reply or "")[:1000], "created_at": now(),
+        })
+    except Exception:
+        # Telemetry must never prevent a valid customer reply from being sent.
+        pass
 
     context["product_id"] = context_product_id
+    context["last_intent"] = intent.intent
+    context["last_entities"] = intent.entities
+    context["last_customer_message"] = text[:500]
     context["language"] = "Manglish" if intent.source in {"llm", "tier2_llm"} and intent.entities.get("language") == "Manglish" else context.get("language")
     if product:
         context["last_products"] = [str(product["_id"])] + [x for x in context.get("last_products", []) if x != str(product["_id"])][:4]

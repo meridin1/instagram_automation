@@ -27,12 +27,15 @@ async def record_message(client_id: str, direction: str, text: str):
     )
 
 async def record_llm_usage(client_id: str, prompt_tokens: int = 0, completion_tokens: int = 0, model: str = ""):
-    at = now(); month = month_key(at); total = max(0, int(prompt_tokens)) + max(0, int(completion_tokens))
-    increments = {"llm_requests": 1, "llm_prompt_tokens": max(0, int(prompt_tokens)), "llm_completion_tokens": max(0, int(completion_tokens)), "llm_total_tokens": total}
-    base = {"updated_at": at, "last_llm_model": model}
+    from app.core.config import settings
+    at = now(); month = month_key(at); prompt = max(0, int(prompt_tokens)); completion = max(0, int(completion_tokens)); total = prompt + completion
+    # Optional, operator-configured rates; zero means cost is unknown/not configured, not free.
+    estimated_cost = (prompt * max(0.0, settings.llm_input_cost_per_million_usd) + completion * max(0.0, settings.llm_output_cost_per_million_usd)) / 1_000_000
+    increments = {"llm_requests": 1, "llm_prompt_tokens": prompt, "llm_completion_tokens": completion, "llm_total_tokens": total, "llm_estimated_cost_usd": estimated_cost}
+    base = {"updated_at": at, "last_llm_model": model, "llm_cost_rates_configured": bool(settings.llm_input_cost_per_million_usd or settings.llm_output_cost_per_million_usd)}
     await db().client_usage.update_one({"client_id": client_id, "month": month}, {"$inc": increments, "$set": base, "$setOnInsert": {"client_id": client_id, "month": month, "created_at": at}}, upsert=True)
     await db().client_usage_totals.update_one({"client_id": client_id}, {"$inc": increments, "$set": base, "$setOnInsert": {"client_id": client_id, "created_at": at}}, upsert=True)
-    await db().llm_usage_events.insert_one({"client_id": client_id, "month": month, "model": model, "prompt_tokens": max(0, int(prompt_tokens)), "completion_tokens": max(0, int(completion_tokens)), "total_tokens": total, "created_at": at})
+    await db().llm_usage_events.insert_one({"client_id": client_id, "month": month, "model": model, "prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": total, "estimated_cost_usd": estimated_cost, "cost_rates_configured": bool(settings.llm_input_cost_per_million_usd or settings.llm_output_cost_per_million_usd), "created_at": at})
 
 async def get_client_usage(client_id: str):
     month = month_key()

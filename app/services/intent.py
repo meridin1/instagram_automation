@@ -164,6 +164,9 @@ def _extract_entities(text: str, product: dict | None = None) -> dict:
 
 def _rule_intent(text: str) -> str:
     t = normalize(text)
+    # Follow-up pagination is treated as a catalogue continuation request.
+    if any(x in t for x in ["show more", "more products", "more designs", "see more", "next page", "vere items", "kurach koodi", "more options"]):
+        return "product_search"
     # Human request and high-priority safety/support intents first.
     if any(x in t for x in ["talk to someone", "talk to a human", "human", "agent", "seller", "person", "connect me", "chechiye connect", "chettane connect", "real person"]):
         return "human_handoff"

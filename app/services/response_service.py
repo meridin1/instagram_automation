@@ -72,9 +72,11 @@ async def build_response(
     visual_candidates: list[dict] | None = None,
     visual_filtered_candidates: list[dict] | None = None,
     has_image: bool = False,
+    context: dict | None = None,
 ):
     visual_candidates = visual_candidates or []
     visual_filtered_candidates = visual_filtered_candidates or []
+    context = context or {}
 
     def visual_target(items: list[dict]):
         if not items:
@@ -113,6 +115,30 @@ async def build_response(
     location = settings.get("location", "")
     delivery = settings.get("delivery_info", "")
     business_hours = str(settings.get("business_hours", "") or "").strip()
+
+    # Tenant-scoped RAG: retrieve merchant FAQs/policies separately from structured catalogue facts.
+    knowledge_intents = {"delivery_query", "delivery_time_query", "return_policy_query", "exchange_policy_query",
+                         "payment_query", "location_query", "business_hours_query", "unknown", "product_details"}
+    if original_text and intent.intent in knowledge_intents:
+        try:
+            from app.services.knowledge_service import retrieve_knowledge
+            docs = await retrieve_knowledge(client_id, original_text, limit=3)
+            # Conservative relevance gate prevents unrelated FAQ text from becoming an answer.
+            if docs and float(docs[0].get("retrieval_score", 0)) >= 0.34:
+                automation_cfg = await automation_settings(client_id)
+                facts = [{"title": d["title"], "content": d["content"], "category": d.get("category", "faq")} for d in docs[:3]]
+                generated = None
+                if automation_cfg.get("llm_enabled", False):
+                    from app.services.response_generation_service import generate_grounded_reply
+                    generated = await generate_grounded_reply(client_id, original_text, facts,
+                        tone=automation_cfg.get("tone", "Friendly"), language=automation_cfg.get("language", "English"))
+                # If generation is disabled/unavailable, use the saved source text directly.
+                answer = generated or docs[0]["content"]
+                if answer and len(answer) <= 1500:
+                    return answer, "automated"
+        except Exception:
+            # RAG is an enhancement; the existing deterministic response path remains available.
+            pass
 
     if has_image and visual_candidates and intent.intent == "unknown":
         return _product_list(visual_candidates[:3], "I found these visually similar catalogue designs:") + "\nWhich one do you mean? 😊", "automated"
@@ -191,9 +217,36 @@ async def build_response(
             return "I couldn't confidently match the photo to a catalogue item. Could you share a clearer photo or the product/post link? 😊", "automated"
         if has_image and visual_candidates and not visual_filtered_candidates:
             return _product_list(visual_candidates[:3], "These are the closest visual matches:") + "\nWould you like details about one of these? 😊", "automated"
-        results = visual_filtered_candidates if has_image else await search_products(client_id, original_text, intent.entities, limit=3)
+        is_more = any(x in (original_text or "").casefold() for x in ["show more", "more products", "more designs", "see more", "next page", "vere items", "kurach koodi", "more options"])
+        if is_more and context.get("last_search_query"):
+            search_query = context.get("last_search_query", original_text)
+            search_entities = context.get("last_search_entities", intent.entities)
+            offset = int(context.get("last_search_offset", 0))
+        else:
+            search_query = original_text
+            search_entities = intent.entities
+            offset = 0
+        results = visual_filtered_candidates if has_image else await search_products(client_id, search_query, search_entities, limit=3, offset=offset)
         if results:
+            context["last_search_query"] = search_query
+            context["last_search_entities"] = search_entities
+            context["last_search_offset"] = offset + len(results)
             return _product_list(results), "automated"
+        if is_more:
+            context["last_search_offset"] = 0
+            return "That's all the matching products I found for those filters 😊 Would you like to change the colour, size or budget?", "automated"
+        # Explicitly relax only the budget constraint when no exact result exists; never silently change filters.
+        max_price = search_entities.get("MAX_PRICE", search_entities.get("PRICE"))
+        if max_price is not None and not has_image:
+            relaxed = {k: v for k, v in search_entities.items() if k not in {"MAX_PRICE", "PRICE"}}
+            alternatives = await search_products(client_id, search_query, relaxed, limit=3)
+            price_ceiling = float(max_price)
+            alternatives = [p for p in alternatives if float(p.get("sale_price") or p.get("price", 0) or 0) > price_ceiling]
+            if alternatives:
+                context["last_search_query"] = search_query
+                context["last_search_entities"] = relaxed
+                context["last_search_offset"] = len(alternatives)
+                return (f"I couldn't find an exact match under ₹{price_ceiling:.0f}. These options are above that budget, so you can decide whether to consider them:\n" + _product_list(alternatives)), "automated"
 
     if intent.intent in {"product_price", "product_availability", "product_size", "product_color", "product_link", "product_alternatives"}:
         # With an image, do not silently fall back to an unrelated lexical match.

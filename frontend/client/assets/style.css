@@ -167,3 +167,4 @@ body{color:#202a22;background:#f1f4ef}
   .sidebar-bottom { padding-left:3px; }
   .sidebar-logout, .app-sidebar:hover .sidebar-logout { width:40px; height:44px; }
 }
+.knowledge-row{padding:14px 0;border-bottom:1px solid var(--line,#e5e7eb)}.knowledge-row:last-child{border-bottom:0}.knowledge-row p{font-size:13px;line-height:1.55;color:var(--muted,#64748b);margin:10px 0 0;overflow-wrap:anywhere}.knowledge-row .btn{padding:6px 10px;font-size:12px}

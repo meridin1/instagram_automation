@@ -142,3 +142,9 @@ The endpoint derives the `client_id` from the JWT. Do not put another client's I
 - Passwords are hashed and verified with the same `pwdlib.PasswordHash` instance.
 - JWT contains `sub`, `client_id`, and `exp`.
 - Protected routes derive tenant/client identity from the verified JWT.
+
+## Signup approval workflow (latest update)
+
+New client signups now create a pending application rather than an immediately usable account. Open `/admin` and select **Applications** to review it. Approve creates the client workspace and owner login; Reject removes the pending application. A repeated signup with the same pending email returns a pending message and does not create another application/notification. See `SIGNUP_APPROVAL_WORKFLOW.md` for details.
+
+Voice-note replies/transcription are not part of this update. Existing tiered intent handling and optional CLIP-based image matching remain in the codebase.

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.database.mongo import connect_db, close_db, ensure_indexes
-from app.api.routes import health, auth, clients, products, conversations, instagram, test_api, search, admin, catalogue_options
+from app.api.routes import health, auth, clients, products, conversations, instagram, test_api, search, admin, catalogue_options, knowledge, ai_analytics
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    version="3.0.0",
+    version="3.1.0",
     description="Production-oriented Instagram DM automation for clothing businesses.",
     lifespan=lifespan,
 )
@@ -46,6 +46,8 @@ app.include_router(test_api.router)
 app.include_router(search.router)
 app.include_router(admin.router)
 app.include_router(catalogue_options.router)
+app.include_router(knowledge.router)
+app.include_router(ai_analytics.router)
 
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/dashboard", StaticFiles(directory=frontend_dir / "client", html=True), name="dashboard")

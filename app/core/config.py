@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4.1-mini"
     llm_timeout_seconds: int = 20
     llm_max_output_tokens: int = 700
+    llm_input_cost_per_million_usd: float = 0.0
+    llm_output_cost_per_million_usd: float = 0.0
     tier1_confidence_threshold: float = 0.65
     tier2_confidence_threshold: float = 0.72
 
