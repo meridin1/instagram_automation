@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from app.database.mongo import db
 from app.models.schemas import ProductCreate, ProductUpdate
 from app.core.security import get_client_id
@@ -8,6 +8,13 @@ from app.services.product_service import create_product, update_product, seriali
 from app.services.semantic_search_service import reindex_product
 
 router = APIRouter(prefix="/api/products", tags=["catalogue"])
+
+
+@router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...), client_id: str = Depends(get_client_id)):
+    """Upload a product photo to this tenant's Cloudflare R2 object prefix."""
+    from app.services.object_storage_service import upload_product_image
+    return await upload_product_image(client_id, file)
 
 
 @router.post("")

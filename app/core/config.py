@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     visual_match_margin: float = 0.035
     visual_image_max_bytes: int = 8 * 1024 * 1024
 
+    # Cloudflare R2 public product-image storage. Use a custom public domain for R2_PUBLIC_BASE_URL.
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = ""
+    r2_public_base_url: str = ""
+    product_image_max_bytes: int = 8 * 1024 * 1024
+
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
