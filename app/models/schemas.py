@@ -92,6 +92,11 @@ class ProductCreate(BaseModel):
     description: str = ""
     sizes: list[str] = Field(default_factory=list)
     colors: list[str] = Field(default_factory=list)
+    category_path: list[str] = Field(default_factory=list)
+    variant_options: list[dict] = Field(default_factory=list)
+    variants: list[dict] = Field(default_factory=list)
+    attributes: dict = Field(default_factory=dict)
+    product_type_extra: str = ""
     stock: bool = True
     quantity: int = Field(default=0, ge=0)
     product_url: str = ""
@@ -122,6 +127,11 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
     sizes: Optional[list[str]] = None
     colors: Optional[list[str]] = None
+    category_path: Optional[list[str]] = None
+    variant_options: Optional[list[dict]] = None
+    variants: Optional[list[dict]] = None
+    attributes: Optional[dict] = None
+    product_type_extra: Optional[str] = None
     stock: Optional[bool] = None
     quantity: Optional[int] = Field(default=None, ge=0)
     product_url: Optional[str] = None

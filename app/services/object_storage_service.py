@@ -58,34 +58,22 @@ async def upload_product_image(client_id: str, file: UploadFile) -> dict:
     try:
         await asyncio.to_thread(_upload_bytes, data, key, content_type)
     except Exception as exc:
-        # Log provider diagnostics server-side, without logging credentials, image data,
-        # signed headers, or the full request. Keep the response generic for clients.
+        # Log the original failure without importing botocore in the handler.
+        # This still works if boto3/botocore itself is missing from the deployment.
+        # Do not log credentials, request headers, or uploaded image bytes.
         try:
-            from botocore.exceptions import ClientError, BotoCoreError
-
-            if isinstance(exc, ClientError):
-                error = exc.response.get("Error", {})
-                metadata = exc.response.get("ResponseMetadata", {})
-                logger.error(
-                    "R2 product image upload rejected: error_code=%s http_status=%s request_id=%s bucket_configured=true object_key=%s",
-                    error.get("Code", "Unknown"),
-                    metadata.get("HTTPStatusCode", "Unknown"),
-                    metadata.get("RequestId", "Unknown"),
-                    key,
-                )
-            elif isinstance(exc, BotoCoreError):
-                logger.warning(
-                    "R2 product image upload SDK/client failure: exception_type=%s object_key=%s message=%s",
-                    type(exc).__name__, key, str(exc)[:300],
-                )
-            else:
-                logger.exception(
-                    "Unexpected R2 product image upload failure: exception_type=%s object_key=%s",
-                    type(exc).__name__, key,
-                )
+            error_text = str(exc).replace(settings.r2_access_key_id or "", "[REDACTED]")
+            error_text = error_text.replace(settings.r2_secret_access_key or "", "[REDACTED]")
+            logger.error(
+                "R2 product image upload failed: exception_type=%s error=%s object_key=%s",
+                type(exc).__name__, error_text[:500], key,
+            )
         except Exception:
-            # Diagnostics must never mask the original upload error.
-            logger.error("R2 product image upload failed; diagnostic logging also failed")
+            # Never let diagnostics mask the original upload failure.
+            logger.error(
+                "R2 product image upload failed and diagnostic formatting failed: exception_type=%s",
+                type(exc).__name__,
+            )
         raise HTTPException(
             502,
             "Cloudflare R2 could not store the image. Check the Render logs for the R2 error code.",
