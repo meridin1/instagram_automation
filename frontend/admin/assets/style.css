@@ -137,3 +137,38 @@ body{background:radial-gradient(ellipse at 12% 0%,#f9fbf7 0,transparent 45%),var
   .side-bottom button, .side:hover .side-bottom button { width:40px; min-width:40px; height:44px; min-height:44px; }
   .kpis { grid-template-columns:minmax(0,1fr); }
 }
+
+.catalogue-admin-card{margin-bottom:16px;padding:20px}
+.taxonomy-add-form,.variant-admin-add{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,1fr) auto;gap:10px;align-items:end;margin:16px 0}
+.taxonomy-tree-admin{border:1px solid #e2e8f0;border-radius:10px;max-height:520px;overflow:auto;padding:6px 14px}
+.taxonomy-admin-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 2px;border-bottom:1px solid #edf0f4}
+.taxonomy-admin-row:last-child{border-bottom:0}
+.taxonomy-admin-row .sub{overflow-wrap:anywhere}
+.variant-admin-add{grid-template-columns:minmax(200px,1fr) auto}
+.variant-admin-row{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:12px 0}
+.variant-admin-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.variant-admin-row .field-label{display:block;font-size:12px;font-weight:600;margin-bottom:6px}
+.variant-admin-values{width:100%;font-family:inherit}
+@media(max-width:700px){.taxonomy-add-form,.variant-admin-add{grid-template-columns:1fr}.taxonomy-admin-row{align-items:flex-start}.catalogue-admin-card{padding:14px}}
+
+/* Polished variant option manager: individual values are visible and managed as a list. */
+.catalogue-admin-card .variant-admin-add{margin:18px 0 20px;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.catalogue-admin-card .variant-admin-add .input{min-width:0}
+.variant-admin-row{background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);border:1px solid #dce3ec;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 2px 8px rgba(15,23,42,.035)}
+.variant-admin-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid #e8edf3;margin-bottom:12px}
+.variant-admin-title{display:flex;align-items:center;gap:12px;min-width:0}
+.variant-admin-title strong{display:block;font-size:15px;color:#172033}
+.variant-admin-icon{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;border-radius:11px;background:#eef5ff;color:#2456a6;font-size:24px;font-weight:700}
+.variant-admin-title .sub{font-size:12px;margin-top:3px}
+.variant-value-list{display:flex;flex-direction:column;gap:7px}
+.variant-value-item{display:flex;align-items:center;gap:10px;min-height:43px;padding:7px 9px;border:1px solid #e6ebf1;border-radius:9px;background:#fff}
+.variant-value-index{display:grid;place-items:center;flex:0 0 25px;width:25px;height:25px;border-radius:7px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700}
+.variant-value-text{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px;color:#273449;font-weight:500}
+.variant-value-remove{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border:1px solid #fee2e2;border-radius:8px;background:#fff7f7;color:#b91c1c;font-size:21px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s}
+.variant-value-remove:hover{background:#fee2e2;border-color:#fca5a5}
+.variant-values-empty{padding:16px;border:1px dashed #cbd5e1;border-radius:9px;color:#64748b;background:#f8fafc;font-size:13px;text-align:center}
+.variant-value-add-form{display:flex;align-items:center;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid #edf1f5}
+.variant-value-add-form .input{flex:1;min-width:0}
+.variant-value-add-form .btn{white-space:nowrap}
+.variant-save-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:14px 0 0;border-top:1px solid #e6ebf1}
+@media(max-width:600px){.catalogue-admin-card .variant-admin-add{grid-template-columns:1fr}.variant-admin-row{padding:13px}.variant-admin-head{align-items:flex-start}.variant-value-add-form{align-items:stretch;flex-direction:column}.variant-value-add-form .btn{width:100%}.variant-save-bar{align-items:stretch;flex-direction:column}.variant-save-bar .btn{width:100%}}

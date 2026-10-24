@@ -91,3 +91,65 @@ async def deactivate_option(option_id: str, user=Depends(get_admin_user)):
     if not result.matched_count:
         raise HTTPException(404, "Catalogue option not found")
     return {"ok": True, "active": False, "id": option_id}
+
+
+# Shared clothing taxonomy and variant option vocabulary. Admin edits are stored centrally
+# so every client sees the same managed options.
+def _default_catalogue_config():
+    import json, re
+    from pathlib import Path
+    source = Path(__file__).resolve().parents[3] / "frontend" / "client" / "assets" / "clothing-taxonomy.js"
+    text = source.read_text(encoding="utf-8")
+    result = {}
+    for js_name, key in (("MERIDIN_CLOTHING_TAXONOMY", "taxonomy"), ("MERIDIN_VARIANT_PRESETS", "variant_presets")):
+        match = re.search(r"window\." + js_name + r"\s*=\s*(\{.*?\});", text, re.S)
+        if not match:
+            raise HTTPException(500, "Could not load default catalogue configuration")
+        result[key] = json.loads(match.group(1))
+    return result
+
+@router.get("/api/catalogue-config")
+async def get_catalogue_config(client_id: str = Depends(get_client_id)):
+    saved = await db().catalogue_config.find_one({"_id": "shared"})
+    return {"taxonomy": saved.get("taxonomy"), "variant_presets": saved.get("variant_presets")} if saved else _default_catalogue_config()
+
+class CatalogueConfigUpdate(BaseModel):
+    taxonomy: dict
+    variant_presets: dict[str, list[str]]
+
+@router.get("/api/admin/catalogue-config")
+async def admin_get_catalogue_config(user=Depends(get_admin_user)):
+    saved = await db().catalogue_config.find_one({"_id": "shared"})
+    return {"taxonomy": saved.get("taxonomy"), "variant_presets": saved.get("variant_presets")} if saved else _default_catalogue_config()
+
+@router.put("/api/admin/catalogue-config")
+async def admin_update_catalogue_config(payload: CatalogueConfigUpdate, user=Depends(get_admin_user)):
+    import json
+    taxonomy = payload.taxonomy
+    presets = payload.variant_presets
+    if len(json.dumps(taxonomy)) > 500_000 or len(json.dumps(presets)) > 200_000:
+        raise HTTPException(413, "Catalogue configuration is too large")
+    def validate_tree(node, depth=0):
+        if depth > 12:
+            raise HTTPException(400, "Category nesting cannot exceed 12 levels")
+        if not isinstance(node, dict):
+            raise HTTPException(400, "Every category level must be an object")
+        for name, child in node.items():
+            if not isinstance(name, str) or not name.strip() or len(name) > 100:
+                raise HTTPException(400, "Category names must be 1–100 characters")
+            if isinstance(child, list):
+                if any(not isinstance(v, str) or not v.strip() or len(v) > 100 for v in child):
+                    raise HTTPException(400, "Category leaf values must be non-empty strings")
+            elif isinstance(child, dict):
+                validate_tree(child, depth + 1)
+            else:
+                raise HTTPException(400, "Category nodes must contain objects or lists")
+    validate_tree(taxonomy)
+    clean = {}
+    for name, values in presets.items():
+        label = name.strip() if isinstance(name, str) else ""
+        if not label or len(label) > 80 or not isinstance(values, list) or len(values) > 500:
+            raise HTTPException(400, "Variant names and values are invalid")
+        clean[label] = list(dict.fromkeys(v.strip() for v in values if isinstance(v, str) and v.strip()))
+    await db().catalogue_config.update_one({"_id": "shared"}, {"$set": {"taxonomy": taxonomy, "variant_presets": clean, "updated_at": datetime.now(timezone.utc)}}, upsert=True)
+    return {"taxonomy": taxonomy, "variant_presets": clean}
