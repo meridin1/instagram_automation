@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import asyncio
+import logging
 import time
 from bson import ObjectId
 from app.database.mongo import db
@@ -10,6 +11,8 @@ from app.services.instagram_service import InstagramService
 from app.services.secret_service import account_access_token
 from app.services.client_meta_config_service import get_client_meta_config
 from app.services.usage_service import record_message, reserve_message_rate, data_limit_reached
+
+logger = logging.getLogger(__name__)
 
 
 def now():
@@ -248,14 +251,43 @@ async def process_inbound(
                 account_query["_id"] = None
         account = await database.instagram_accounts.find_one(account_query)
         if account:
-            meta = await InstagramService().send_text(
+            instagram_service = InstagramService()
+            meta_config = await get_client_meta_config(client_id)
+            meta = await instagram_service.send_text(
                 account["instagram_user_id"],
                 account_access_token(account),
                 sender_id,
                 reply,
-                await get_client_meta_config(client_id),
+                meta_config,
             )
             result["meta"] = meta
+
+            # Send the matched product photo after its text reply. Prefer a text-matched
+            # product; for image-only DMs, send a photo only for a confident visual match.
+            outgoing_product = product if product and product.get("image_url") else None
+            if not outgoing_product and image_url and visual_candidates:
+                from app.core.config import settings
+                top = visual_candidates[0]
+                second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
+                top_score = float(top.get("visual_similarity", 0))
+                if top_score >= settings.visual_similarity_threshold and (len(visual_candidates) == 1 or top_score - second_score >= settings.visual_match_margin):
+                    if top.get("image_url"):
+                        outgoing_product = top
+            if outgoing_product and outgoing_product.get("image_url"):
+                try:
+                    result["meta_image"] = await instagram_service.send_image(
+                        account["instagram_user_id"],
+                        account_access_token(account),
+                        sender_id,
+                        outgoing_product["image_url"],
+                        meta_config,
+                    )
+                    result["product_image_sent"] = True
+                except Exception:
+                    # The text reply has already been sent; image failure should be visible
+                    # in logs/result but must not turn the successfully processed message into a failure.
+                    logger.exception("Could not send matched product image: client_id=%s", client_id)
+                    result["product_image_sent"] = False
 
     return result
 

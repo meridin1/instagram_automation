@@ -293,6 +293,49 @@ class InstagramService:
                 detail="Could not connect to the Instagram API.",
             ) from exc
 
+    async def send_image(
+        self,
+        ig_user_id: str,
+        access_token: str,
+        recipient_id: str,
+        image_url: str,
+        config: dict | None = None,
+    ) -> dict[str, Any]:
+        """Send a publicly accessible product image as an Instagram DM attachment."""
+        config = self._validate_config(config)
+        if not access_token:
+            raise HTTPException(status_code=401, detail="Instagram account access token is missing.")
+        if not ig_user_id or not recipient_id:
+            raise HTTPException(status_code=400, detail="Instagram account ID and recipient ID are required.")
+        image_url = str(image_url or "").strip()
+        if not image_url.startswith(("https://", "http://")):
+            raise HTTPException(status_code=400, detail="A public HTTP(S) image URL is required.")
+
+        url = self._url(f"{ig_user_id}/messages", config)
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {
+                "attachment": {
+                    "type": "image",
+                    "payload": {"url": image_url, "is_reusable": True},
+                }
+            },
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    url, json=payload, headers={"Authorization": f"Bearer {access_token}"}
+                )
+            result = self._read_json(response, "image sending")
+            logger.info("Instagram image send succeeded: account_id=%s http_status=%s", ig_user_id, response.status_code)
+            return result
+        except httpx.TimeoutException as exc:
+            logger.exception("Instagram image request timed out: account_id=%s", ig_user_id)
+            raise HTTPException(status_code=504, detail="Instagram image request timed out.") from exc
+        except httpx.RequestError as exc:
+            logger.exception("Instagram image network error: account_id=%s", ig_user_id)
+            raise HTTPException(status_code=502, detail="Could not connect to the Instagram API.") from exc
+
     @staticmethod
     def verify_signature(
         raw_body: bytes,
