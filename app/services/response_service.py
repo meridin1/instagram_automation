@@ -94,6 +94,8 @@ async def build_response(
     if original_text == "[instagram_attachment:image]":
         target = visual_target(visual_candidates)
         if target:
+            context["product_id"] = str(target.get("_id", "")) or context.get("product_id")
+            context["last_products"] = [str(target.get("_id", ""))] + [x for x in context.get("last_products", []) if x != str(target.get("_id", ""))]
             return (
                 f"This looks closest to {target.get('name', 'this catalogue item')} "
                 f"({_display_price(target)}). Is this the design you mean? 😊"
@@ -201,6 +203,17 @@ async def build_response(
         return "I'll connect you with our team to confirm any current offers or discounts. 😊", "human"
 
     if intent.intent in {"product_inquiry", "product_details", "media_product_identification", "product_comparison"}:
+        image_request = any(phrase in (original_text or "").casefold() for phrase in [
+            "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach", "photo ayaku", "photo ayakuo", "photo ayakkuo", "photo ayakk",
+            "send image", "send photo", "image undo", "product image", "jeans nte image",
+            "jeans inte image", "ithinte image", "ithinte photo", "dress nte image",
+            "kurti nte image", "picture ayaku", "pic ayaku",
+        ])
+        if image_request and product and product.get("image_url"):
+            context["product_id"] = str(product.get("_id", "")) or context.get("product_id")
+            if context["product_id"]:
+                context["last_products"] = [context["product_id"]] + [x for x in context.get("last_products", []) if x != context["product_id"]]
+            return f"Sure 😊 I'll send you the photo of {product.get('name', 'this product')} now.", "automated"
         if has_image and not visual_candidates:
             return "I couldn't confidently match the photo to a catalogue item. Could you share a clearer photo or the product/post link? 😊", "automated"
         if has_image and visual_candidates and not visual_filtered_candidates:
@@ -231,6 +244,11 @@ async def build_response(
             context["last_search_query"] = search_query
             context["last_search_entities"] = search_entities
             context["last_search_offset"] = offset + len(results)
+            result_ids = [str(item.get("_id", "")) for item in results if item.get("_id")]
+            if result_ids:
+                context["last_products"] = result_ids[:5] + [x for x in context.get("last_products", []) if x not in result_ids][:max(0, 5-len(result_ids))]
+                if len(results) == 1:
+                    context["product_id"] = result_ids[0]
             return _product_list(results), "automated"
         if is_more:
             context["last_search_offset"] = 0
@@ -289,6 +307,11 @@ async def build_response(
             return "I couldn't find a matching product in the catalogue.", "automated"
 
         name = target.get("name", "This product")
+        # Persist the resolved catalogue item for short follow-up messages.
+        target_id = str(target.get("_id", ""))
+        if target_id:
+            context["product_id"] = target_id
+            context["last_products"] = [target_id] + [x for x in context.get("last_products", []) if x != target_id][:4]
         if intent.intent == "product_price":
             return f"{name} is {_display_price(target)}.", "automated"
         if intent.intent in {"product_availability", "product_size"}:

@@ -164,6 +164,20 @@ def _extract_entities(text: str, product: dict | None = None) -> dict:
 
 def _rule_intent(text: str) -> str:
     t = normalize(text)
+    # Product-image requests are common in Instagram DMs and Manglish. Check these
+    # before generic availability words such as "undo" ("image undo" means
+    # "is the image available?", not a stock check).
+    image_request_phrases = [
+        "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach", "image undo",
+        "photo ayaku", "photo ayakuo", "photo ayakkuo", "photo ayakk", "photo ayach", "photo undo",
+        "pic ayaku", "pic ayakk", "picture ayaku", "picture ayakk",
+        "send image", "send photo", "send me the image", "send me photo",
+        "can i see the image", "show product image", "product image",
+        "jeans nte image", "jeans inte image", "image of the jeans",
+        "dress nte image", "kurti nte image", "ithinte image", "ithinte photo",
+    ]
+    if any(x in t for x in image_request_phrases):
+        return "media_product_identification"
     # Follow-up pagination is treated as a catalogue continuation request.
     if any(x in t for x in ["show more", "more products", "more designs", "see more", "next page", "vere items", "kurach koodi", "more options"]):
         return "product_search"

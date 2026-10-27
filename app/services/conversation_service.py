@@ -110,7 +110,16 @@ async def process_inbound(
         {"role": "customer" if m.get("direction") == "inbound" else "shop", "text": str(m.get("text", ""))[:500], "intent": m.get("intent")}
         for m in history
     ]
-    context_product_id = product_id or context.get("product_id") or (str(source_product["_id"]) if source_product else None)
+    # Reuse the last product selected in this conversation so short follow-ups
+    # like "Price?", "image ayakuo", and "ithinte size?" do not require the
+    # customer to repeat the product name in every message.
+    last_products = context.get("last_products") or []
+    context_product_id = (
+        product_id
+        or context.get("product_id")
+        or (str(source_product["_id"]) if source_product else None)
+        or (str(last_products[0]) if last_products else None)
+    )
     product = await get_product(client_id, context_product_id)
 
     automation = await database.automation_settings.find_one({"client_id": client_id}) or {}
@@ -180,6 +189,11 @@ async def process_inbound(
         has_image=bool(image_url),
         context=context,
     )
+    # build_response may resolve a product through catalogue search. Reload it
+    # from the conversation context so a requested photo can be sent after text.
+    context_product_id = context.get("product_id") or context_product_id
+    if context_product_id and (not product or str(product.get("_id")) != str(context_product_id)):
+        product = await get_product(client_id, context_product_id)
     response_latency_ms = int((time.monotonic() - response_started) * 1000)
     try:
         await database.ai_evaluation_events.insert_one({
