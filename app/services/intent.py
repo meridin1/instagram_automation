@@ -222,23 +222,38 @@ def _rule_intent(text: str) -> str:
         return "delivery_time_query"
     if any(x in t for x in ["delivery", "deliver", "shipping", "courier", "delivery undo", "delivery ethra"]):
         return "delivery_query"
-    if any(x in t for x in ["other design", "other designs", "vere design", "vere model", "vere item", "matte design", "similar products", "another option"]):
+    if any(x in t for x in ["other design", "other designs", "vere design", "vere designs", "vere model", "vere item", "matte design", "similar products", "another option", "vere design undo", "vere designs undo"]):
         return "product_alternatives"
     if any(x in t for x in ["link", "url", "send link", "link ayakk", "link onnu"]):
         return "product_link"
-    if any(x in t for x in ["place an order", "place order", "i want to order", "i want to buy", "want to buy", "buy this", "order this", "how do i order", "how to order", "vaangan", "edukkan", "book cheyy"]):
+    # Purchase intent in English and common Malayalam/Manglish phrasing.
+    # Keep this before generic availability/ML fallback so "ith order cheyyanam"
+    # cannot be misclassified as cancellation or an unrelated intent.
+    if any(x in t for x in [
+        "place an order", "place order", "i want to order", "i want to buy", "want to buy",
+        "buy this", "order this", "how do i order", "how to order", "vaangan", "vangan",
+        "vaanganam", "vanganam", "edukkan", "book cheyy", "order cheyyanam",
+        "ith order cheyyanam", "ithu order cheyyanam", "ith vangaan", "ith vangan",
+        "ith venam", "enikku venam", "enikk venam", "enikku vangaan thalparyam",
+        "vangan thalparyam", "order idanam", "order cheyyan"
+    ]):
         return "order_request"
     has_availability_marker = any(x in t for x in ["available", "stock", " undo", "undo ", "kittumo", "vilkkunnundo", "sell cheyyarundo"])
     has_variant = bool(re.search(r"\b(black|white|red|blue|green|pink|yellow|brown|beige|maroon|purple|grey|gray|orange|navy|cream|lavender|peach)\b", t) or re.search(r"\b(5xl|4xl|3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", t))
     if has_availability_marker and has_variant:
         return "product_availability"
     if any(x in t for x in ["available", "stock", "undo", "kittumo", "available ano", "vilkkunnundo", "sell cheyyarundo"]):
-        return "product_availability"
+        if not any(x in t for x in ["size", "sizes", "ethokke size", "entha size", "available sizes"]):
+            return "product_availability"
     if any(x in t for x in ["price", "how much", "rate", "ethra", "cost", "₹", "rs."]):
         return "product_price"
     if any(x in t for x in ["colour", "color", "which colour", "which color", "available colours", "available colors"]):
         return "product_color"
-    if any(x in t for x in ["size", "xl undo", "xxl undo", "large undo", "small undo", "medium undo", "size available"]):
+    if any(x in t for x in [
+        "size", "sizes", "ethokke size", "ethokke sizes", "entha size", "entha sizes",
+        "ethokke size il", "size il und", "xl undo", "xxl undo", "large undo",
+        "small undo", "medium undo", "size available", "available sizes", "which sizes"
+    ]):
         return "product_size"
     if any(x in t for x in ["show me", "looking for", "need something", "suggest", "recommend", "find me", "under ", "below "]):
         return "product_search"

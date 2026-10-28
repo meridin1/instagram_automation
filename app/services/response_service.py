@@ -336,14 +336,21 @@ async def build_response(
             link = target.get("product_url", "")
             return (f"Sure 😊 Here is the link for {name}: {link}" if link else f"I don't have a product link listed for {name}.", "automated")
         if intent.intent == "product_alternatives":
+            # Search by the product's category/type, not by the customer's phrase
+            # "Vere designs undo"; exclude the currently selected product.
+            category_terms = " ".join(str(target.get(key, "") or "") for key in
+                                      ("category", "subcategory", "product_type", "department"))
+            search_query = " ".join(x for x in [category_terms, name] if x).strip()
             results = await search_products(
                 client_id,
-                f"{name} {target.get('category', '')} similar alternative",
+                search_query,
                 {},
-                limit=3,
+                limit=4,
                 exclude_product_id=str(target["_id"]),
             )
-            return (_product_list(results, "Here are some other designs:"), "automated") if results else ("I couldn't find another matching design in the catalogue.", "automated")
+            if results:
+                return _product_list(results, "Here are some other designs:"), "automated"
+            return "I couldn't find another matching design in the catalogue right now. 😊", "automated"
 
     if automation.get("human_handoff_on_unknown", True):
         return "I'm not fully sure about that. I'll connect you with our team so you get the correct answer.", "human"

@@ -278,7 +278,25 @@ async def process_inbound(
 
             # Send the matched product photo after its text reply. Prefer a text-matched
             # product; for image-only DMs, send a photo only for a confident visual match.
-            outgoing_product = product if product and product.get("image_url") else None
+            # Only attach a catalogue photo when the customer explicitly asks for one,
+            # sends a product photo that was confidently matched, or starts product discovery.
+            # Never attach the same image to every price/size/stock/order follow-up.
+            normalized_customer_text = str(text or "").casefold()
+            explicit_image_request = any(phrase in normalized_customer_text for phrase in [
+                "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach",
+                "image undo", "photo ayaku", "photo ayakuo", "photo ayakk", "photo undo",
+                "pic ayaku", "pic ayakk", "picture ayaku", "picture ayakk", "send image",
+                "send photo", "product image", "ithinte image", "ithinte photo",
+                "jeans nte image", "jeans inte image", "dress nte image", "kurti nte image",
+            ])
+            category_discovery = (
+                intent.intent in {"product_search", "product_inquiry"}
+                or (intent.intent == "product_availability" and bool(intent.entities.get("CATEGORY")))
+            )
+            should_send_catalogue_image = explicit_image_request or category_discovery
+            outgoing_product = product if (
+                should_send_catalogue_image and product and product.get("image_url")
+            ) else None
             if not outgoing_product and image_url and visual_candidates:
                 from app.core.config import settings
                 top = visual_candidates[0]
