@@ -320,7 +320,10 @@ async def build_response(
             if size:
                 listed = size.upper() in [str(x).upper() for x in target.get("sizes", [])]
                 return (f"Yes 😊 {size.upper()} is available for {name}." if available and listed else f"Sorry, {size.upper()} is not listed as available for {name}.", "automated")
-            return (f"Yes 😊 {name} is currently available." if available else f"Sorry, {name} is currently out of stock.", "automated")
+            sizes = [str(x).upper() for x in (target.get("sizes", []) or []) if str(x).strip()]
+            if sizes:
+                return f"Available sizes for {name}: {', '.join(sizes)}. 😊", "automated"
+            return (f"Yes 😊 {name} is currently available, but I don't have its size options listed." if available else f"Sorry, {name} is currently out of stock."), "automated"
         if intent.intent == "product_color":
             colors = target.get("colors", [])
             requested_color = str(intent.entities.get("COLOR", "")).strip()
@@ -336,21 +339,37 @@ async def build_response(
             link = target.get("product_url", "")
             return (f"Sure 😊 Here is the link for {name}: {link}" if link else f"I don't have a product link listed for {name}.", "automated")
         if intent.intent == "product_alternatives":
-            # Search by the product's category/type, not by the customer's phrase
-            # "Vere designs undo"; exclude the currently selected product.
-            category_terms = " ".join(str(target.get(key, "") or "") for key in
-                                      ("category", "subcategory", "product_type", "department"))
-            search_query = " ".join(x for x in [category_terms, name] if x).strip()
-            results = await search_products(
-                client_id,
-                search_query,
-                {},
-                limit=4,
-                exclude_product_id=str(target["_id"]),
-            )
-            if results:
-                return _product_list(results, "Here are some other designs:"), "automated"
-            return "I couldn't find another matching design in the catalogue right now. 😊", "automated"
+            current_id = str(target.get("_id", ""))
+            # Try progressively broader, catalogue-grounded searches. Never invent
+            # an alternative and never return the product the customer already saw.
+            query_parts = [
+                " ".join(str(target.get(k, "") or "") for k in ("category", "subcategory", "product_type")),
+                " ".join(str(target.get(k, "") or "") for k in ("category", "department")),
+                str(target.get("category", "") or ""),
+                str(target.get("product_type", "") or ""),
+            ]
+            results = []
+            seen = {current_id} if current_id else set()
+            for query in query_parts:
+                query = query.strip()
+                if not query:
+                    continue
+                candidates = await search_products(
+                    client_id, query, {}, limit=10,
+                    exclude_product_id=current_id or None,
+                )
+                for candidate in candidates:
+                    candidate_id = str(candidate.get("_id", ""))
+                    if candidate_id and candidate_id not in seen:
+                        seen.add(candidate_id)
+                        results.append(candidate)
+                    elif not candidate_id:
+                        results.append(candidate)
+                    if len(results) >= 3:
+                        break
+                if len(results) >= 3:
+                    break
+            return (_product_list(results[:3], "Here are some other designs:"), "automated") if results else ("I couldn't find another design in the active catalogue right now. If you add more jeans/designs to the catalogue, I can show those too. 😊", "automated")
 
     if automation.get("human_handoff_on_unknown", True):
         return "I'm not fully sure about that. I'll connect you with our team so you get the correct answer.", "human"

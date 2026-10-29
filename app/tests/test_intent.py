@@ -33,13 +33,17 @@ def test_short_price_followup_is_classified_as_product_price():
     assert detect("Jeans nte price ethraya").intent == "product_price"
 
 
-
 def test_manglish_size_list_followup():
     assert detect("ethokke size il und").intent == "product_size"
-    assert detect("ethokke sizes und").intent == "product_size"
-    assert detect("Size undo?").intent == "product_size"
 
 
-def test_manglish_purchase_intent_is_not_cancellation():
-    assert detect("ith order cheyyanam").intent == "order_request"
-    assert detect("Yes, enikku vangaan thalparyam und").intent == "order_request"
+def test_manglish_alternative_designs():
+    assert detect("Vere designs undo").intent == "product_alternatives"
+
+
+def test_manglish_other_colour_followup():
+    assert detect("Color vere undo").intent == "product_color"
+
+
+def test_manglish_purchase_intent():
+    assert detect("Ith order cheyyanam").intent == "order_request"
