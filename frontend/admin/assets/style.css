@@ -172,3 +172,11 @@ body{background:radial-gradient(ellipse at 12% 0%,#f9fbf7 0,transparent 45%),var
 .variant-value-add-form .btn{white-space:nowrap}
 .variant-save-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:14px 0 0;border-top:1px solid #e6ebf1}
 @media(max-width:600px){.catalogue-admin-card .variant-admin-add{grid-template-columns:1fr}.variant-admin-row{padding:13px}.variant-admin-head{align-items:flex-start}.variant-value-add-form{align-items:stretch;flex-direction:column}.variant-value-add-form .btn{width:100%}.variant-save-bar{align-items:stretch;flex-direction:column}.variant-save-bar .btn{width:100%}}
+
+
+/* Async action feedback */
+.btn.is-loading,button.is-loading{cursor:wait;opacity:.88;pointer-events:none}
+.button-spinner{display:inline-block;width:15px;height:15px;flex:0 0 15px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:meridin-button-spin .7s linear infinite;vertical-align:-2px}
+button.is-loading{display:inline-flex;align-items:center;justify-content:center;gap:9px}
+@keyframes meridin-button-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.button-spinner{animation-duration:1.8s}}

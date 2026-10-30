@@ -106,6 +106,6 @@ Known flows are deterministic. LLM is used for ambiguous language and search int
 
 ## Production
 
-Run behind HTTPS and a reverse proxy/load balancer. Use MongoDB Atlas or a managed MongoDB deployment. Set a strong JWT secret, Meta credentials, LLM credentials, restrictive CORS origins, and production logging/monitoring.
+See `DEPLOY_VERCEL_AND_META.md` for the single-project Vercel deployment, custom domains, environment variables, Meta webhook migration, and production verification. Use a managed MongoDB deployment and Cloudflare R2 for persistent product images. Preserve existing JWT and token-encryption keys during domain migrations.
 
 The Meta API scopes/endpoints can change over time. Configure the scopes and Graph version supported by the Meta product enabled in your developer application. The code keeps these values in environment variables instead of hardcoding a tutorial-specific version.

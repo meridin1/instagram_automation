@@ -5,6 +5,11 @@
   const money = v => `₹${Number(v||0).toLocaleString('en-IN')}`;
   const date = v => v ? new Date(v).toLocaleString([], {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
   const token = () => localStorage.getItem('meridin_token');
+  function setButtonLoading(button,label='Please wait…'){
+    if(!button)return;
+    button.disabled=true;button.setAttribute('aria-busy','true');button.classList.add('is-loading');
+    button.innerHTML=`<span class="button-spinner" aria-hidden="true"></span><span>${esc(label)}</span>`;
+  }
   async function api(path, opts={}) {
     const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
     if(token()) headers.Authorization = `Bearer ${token()}`;
@@ -26,7 +31,7 @@
       ${error?`<div class="error">${esc(error)}</div>`:''}<button class="btn primary" type="submit">Sign in</button></form>
       <div class="switch">Need an account? <button class="link" id="registerLink">Create one</button></div>
     </div></div>`;
-    $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({username:$('#email').value,password:$('#password').value})});localStorage.setItem('meridin_token',d.access_token);await boot()}catch(err){renderLogin(err.message)}};
+    $('#loginForm').onsubmit=async e=>{e.preventDefault();setButtonLoading(e.currentTarget.querySelector('button[type=submit]'),'Signing in…');try{const d=await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({username:$('#email').value,password:$('#password').value})});localStorage.setItem('meridin_token',d.access_token);await boot()}catch(err){renderLogin(err.message)}};
     $('#registerLink').onclick=renderRegister;
   }
   function renderRegister(error=''){
@@ -34,7 +39,7 @@
       <form id="regForm"><div class="field"><label>Brand name</label><input class="input" id="brand" required></div><div class="field"><label>Email</label><input class="input" id="email" type="email" required></div><div class="field"><label>Password</label><input class="input" id="password" type="password" minlength="8" required></div><div class="field"><label>Instagram username</label><input class="input" id="ig" placeholder="@yourbrand"></div>${error?`<div class="error">${esc(error)}</div>`:''}<button class="btn primary" type="submit">Create workspace</button></form><div class="switch">Already have an account? <button class="link" id="back">Sign in</button></div>
     </div></div>`;
     $('#back').onclick=()=>renderLogin();
-    $('#regForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/register',{method:'POST',body:JSON.stringify({brand_name:$('#brand').value,email:$('#email').value,password:$('#password').value,instagram_username:$('#ig').value||null})});if(d.status==='pending'){renderPending(d.message,$('#email').value);return;}if(d.access_token){localStorage.setItem('meridin_token',d.access_token);await boot();}else{renderPending(d.message||'Your application is pending approval.',$('#email').value)}}catch(err){renderRegister(err.message)}};
+    $('#regForm').onsubmit=async e=>{e.preventDefault();setButtonLoading(e.currentTarget.querySelector('button[type=submit]'),'Creating workspace…');try{const d=await api('/api/auth/register',{method:'POST',body:JSON.stringify({brand_name:$('#brand').value,email:$('#email').value,password:$('#password').value,instagram_username:$('#ig').value||null})});if(d.status==='pending'){renderPending(d.message,$('#email').value);return;}if(d.access_token){localStorage.setItem('meridin_token',d.access_token);await boot();}else{renderPending(d.message||'Your application is pending approval.',$('#email').value)}}catch(err){renderRegister(err.message)}};
   }
 
 

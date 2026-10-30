@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "Meridin Instagram Automation"
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "meridin_instagram"
-    public_base_url: str = "https://instagram-automation-kx8n.onrender.com"
+    public_base_url: str = "https://ig-api.meridin.in"
 
     jwt_secret: str = "change-me-in-production"
     token_encryption_key: str = ""
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
 
-    cors_origins: str = "http://localhost:8000,http://localhost:5173"
+    cors_origins: str = "https://ig-app.meridin.in,https://ig-admin.meridin.in,https://ig-api.meridin.in,http://localhost:8000,http://localhost:5173"
 
 
     llm_enabled: bool = False

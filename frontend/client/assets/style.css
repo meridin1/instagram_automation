@@ -295,3 +295,11 @@ body{color:#202a22;background:#f1f4ef}
   .product-editor-modal .category-picker-dropdown{left:0!important;width:100%!important;max-height:340px;}
   .product-editor-modal .category-picker-dropdown .category-submenu{width:calc(100% - 8px)!important;margin-left:8px!important;}
 }
+
+
+/* Async action feedback */
+.btn.is-loading,button.is-loading{cursor:wait;opacity:.88;pointer-events:none}
+.button-spinner{display:inline-block;width:15px;height:15px;flex:0 0 15px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:meridin-button-spin .7s linear infinite;vertical-align:-2px}
+button.is-loading{display:inline-flex;align-items:center;justify-content:center;gap:9px}
+@keyframes meridin-button-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.button-spinner{animation-duration:1.8s}}

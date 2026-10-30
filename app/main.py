@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
@@ -52,3 +53,14 @@ app.include_router(ai_analytics.router)
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/dashboard", StaticFiles(directory=frontend_dir / "client", html=True), name="dashboard")
 app.mount("/admin", StaticFiles(directory=frontend_dir / "admin", html=True), name="admin")
+
+
+@app.get("/", include_in_schema=False)
+async def domain_home(request: Request):
+    """Send each custom hostname to its matching UI; keep the API host as a health landing."""
+    host = request.headers.get("host", "").split(":", 1)[0].lower().rstrip(".")
+    if host == "ig-app.meridin.in":
+        return RedirectResponse(url="/dashboard/", status_code=307)
+    if host == "ig-admin.meridin.in":
+        return RedirectResponse(url="/admin/", status_code=307)
+    return {"status": "ok", "service": "meridin-instagram", "api": "/docs"}
