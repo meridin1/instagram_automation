@@ -203,12 +203,9 @@ async def build_response(
         return "I'll connect you with our team to confirm any current offers or discounts. 😊", "human"
 
     if intent.intent in {"product_inquiry", "product_details", "media_product_identification", "product_comparison"}:
-        image_request = any(phrase in (original_text or "").casefold() for phrase in [
-            "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach", "photo ayaku", "photo ayakuo", "photo ayakkuo", "photo ayakk",
-            "send image", "send photo", "image undo", "product image", "jeans nte image",
-            "jeans inte image", "ithinte image", "ithinte photo", "dress nte image",
-            "kurti nte image", "picture ayaku", "pic ayaku",
-        ])
+        # This branch is entered only for the explicit media/image intent.
+        # Do not infer an image request merely because a product is in context.
+        image_request = intent.intent == "media_product_identification"
         if image_request and product and product.get("image_url"):
             context["product_id"] = str(product.get("_id", "")) or context.get("product_id")
             if context["product_id"]:
@@ -342,12 +339,29 @@ async def build_response(
             current_id = str(target.get("_id", ""))
             # Try progressively broader, catalogue-grounded searches. Never invent
             # an alternative and never return the product the customer already saw.
+            # Catalogue records are not always consistently tagged. Prefer
+            # structured taxonomy, then infer a conservative apparel category
+            # from the current product name so e.g. "baggy jeans" can find
+            # other jeans even when category/product_type fields are empty.
             query_parts = [
                 " ".join(str(target.get(k, "") or "") for k in ("category", "subcategory", "product_type")),
                 " ".join(str(target.get(k, "") or "") for k in ("category", "department")),
                 str(target.get("category", "") or ""),
                 str(target.get("product_type", "") or ""),
             ]
+            name_text = str(target.get("name", "") or "").casefold()
+            apparel_terms = (
+                "jeans", "trousers", "pants", "leggings", "palazzo", "kurti",
+                "saree", "sari", "dress", "gown", "shirt", "t-shirt",
+                "tshirt", "top", "skirt", "abaya", "dupatta", "co-ord",
+            )
+            inferred_category = next((term for term in apparel_terms if term in name_text), "")
+            if inferred_category:
+                query_parts.append(inferred_category)
+            # Last fallback: use only the product's taxonomy/name, not the
+            # customer's generic phrase, and always exclude the current item.
+            if not any(str(q).strip() for q in query_parts):
+                query_parts.append(str(target.get("name", "") or ""))
             results = []
             seen = {current_id} if current_id else set()
             for query in query_parts:

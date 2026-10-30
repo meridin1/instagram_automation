@@ -15,6 +15,19 @@ from app.services.usage_service import record_message, reserve_message_rate, dat
 logger = logging.getLogger(__name__)
 
 
+def _should_send_product_image(intent, reply: str, product: dict | None) -> bool:
+    """Only send a catalogue image after an explicit customer image request.
+
+    Product context alone is not consent to send a photo on every turn.
+    """
+    if not product or not product.get("image_url"):
+        return False
+    if getattr(intent, "intent", None) != "media_product_identification":
+        return False
+    text = str(reply or "").casefold()
+    return any(phrase in text for phrase in ("send you the photo", "send you the image", "sending the photo", "sending the image"))
+
+
 def now():
     return datetime.now(timezone.utc)
 
@@ -278,8 +291,10 @@ async def process_inbound(
 
             # Send the matched product photo after its text reply. Prefer a text-matched
             # product; for image-only DMs, send a photo only for a confident visual match.
-            outgoing_product = product if product and product.get("image_url") else None
-            if not outgoing_product and image_url and visual_candidates:
+            outgoing_product = product if _should_send_product_image(intent, reply, product) else None
+            # An incoming customer photo is not a request for the shop to send
+            # its own catalogue photo back. Only explicit text requests qualify.
+            if not outgoing_product and image_url and visual_candidates and _should_send_product_image(intent, reply, visual_candidates[0]):
                 from app.core.config import settings
                 top = visual_candidates[0]
                 second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
