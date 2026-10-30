@@ -11,7 +11,6 @@ from app.api.routes import health, auth, clients, products, conversations, insta
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_db()
