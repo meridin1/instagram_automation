@@ -41,7 +41,7 @@ INTENTS = {
     "product_size", "product_color", "product_link", "location_query", "delivery_query",
     "delivery_time_query", "business_hours_query", "order_status", "order_request",
     "cancel_order", "return_request", "exchange_request", "complaint", "human_handoff",
-    "discount_inquiry", "payment_query", "delivery_issue", "return_policy_query",
+    "discount_inquiry", "payment_query", "delivery_issue", "return_policy_query", "purchase_interest",
     "exchange_policy_query", "product_comparison", "media_product_identification", "unknown",
 }
 
@@ -107,10 +107,10 @@ def _extract_entities(text: str, product: dict | None = None) -> dict:
     found_colors = [c for c in colors if re.search(rf"\b{re.escape(c)}\b", lower)]
     if found_colors:
         entities["COLOR"] = found_colors[0]
-    categories = ["kurti", "dress", "saree", "sari", "top", "shirt", "tshirt", "t-shirt", "jeans", "pants", "trousers", "leggings", "palazzo", "dupatta", "abaya", "gown", "skirt", "set", "co-ord", "co ord"]
+    categories = ["kurti", "dress", "saree", "sari", "top", "shirt", "shirts", "tshirt", "tshirts", "t-shirt", "t-shirts", "jeans", "pant", "pants", "trouser", "trousers", "leggings", "palazzo", "dupatta", "abaya", "gown", "skirt", "shorts", "hoodie", "sweatshirt", "set", "co-ord", "co ord"]
     found_categories = [c for c in categories if re.search(rf"\b{re.escape(c)}\b", lower)]
     if found_categories:
-        entities["CATEGORY"] = found_categories[0]
+        entities["CATEGORY"] = {"shirts": "shirt", "tshirts": "tshirt", "t-shirts": "tshirt", "pants": "pant", "trousers": "trouser"}.get(found_categories[0], found_categories[0])
 
     size_match = re.search(r"\b(5xl|4xl|3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", lower)
     if size_match:
@@ -170,7 +170,7 @@ def _rule_intent(text: str) -> str:
     image_request_phrases = [
         "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach", "image undo",
         "photo ayaku", "photo ayakuo", "photo ayakkuo", "photo ayakk", "photo ayach", "photo undo",
-        "pic ayaku", "pic ayakk", "picture ayaku", "picture ayakk",
+        "pic ayaku", "pic ayakuo", "pic ayakk", "pic ayakkumo", "pic ayach", "picture ayaku", "picture ayakuo", "picture ayakk",
         "send image", "send photo", "send me the image", "send me photo",
         "can i see the image", "show product image", "product image",
         "jeans nte image", "jeans inte image", "image of the jeans",
@@ -190,10 +190,6 @@ def _rule_intent(text: str) -> str:
         return "delivery_issue"
     if any(x in t for x in ["cancel order", "cancel my order", "order cancel", "cancel cheyy"]):
         return "cancel_order"
-    # Explicit purchase language must beat an ML model that may confuse it with
-    # cancellation because both contain the word "order".
-    if any(x in t for x in ["ith order cheyyanam", "order cheyyanam", "ith order cheyy", "enikku order cheyyanam", "i want to order", "want to order", "i want to buy", "want to buy", "buy this", "order this", "vaangan thalparyam", "vangan thalparyam", "vaanganam", "vanganam"]):
-        return "order_request"
     if any(x in t for x in ["where is my order", "order status", "track my order", "tracking", "order evide", "parcel evide"]):
         return "order_status"
     if re.fullmatch(r"(?:hi|hello|hey|hai|hii|halo|hlo|good morning|good evening|good afternoon|namaskaram|salam)[!.\s😊🙂]*", t):
@@ -226,25 +222,16 @@ def _rule_intent(text: str) -> str:
         return "delivery_time_query"
     if any(x in t for x in ["delivery", "deliver", "shipping", "courier", "delivery undo", "delivery ethra"]):
         return "delivery_query"
-    if any(x in t for x in ["other design", "other designs", "vere design", "vere designs", "vere model", "vere item", "matte design", "similar products", "another option"]):
+    if any(x in t for x in ["other design", "other designs", "vere design", "vere model", "vere item", "matte design", "similar products", "another option"]):
         return "product_alternatives"
-    # Colour follow-ups like "color vere undo?" must not fall through to the
-    # generic availability rule just because they contain "undo".
-    if any(x in t for x in ["colour vere", "color vere", "vere colour", "vere color", "other colour", "other color", "different colour", "different color", "which colour", "which color", "available colours", "available colors", "available colour", "available color"]):
-        return "product_color"
-    if ("colour" in t or "color" in t) and any(x in t for x in ["undo", "available", "ethokke", "what"]):
-        # If the customer also asks about a specific size, retain the variant
-        # availability intent (e.g. "black colour undo XL?").
-        if not re.search(r"\b(5xl|4xl|3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", t):
-            return "product_color"
     if any(x in t for x in ["link", "url", "send link", "link ayakk", "link onnu"]):
         return "product_link"
+    if any(x in t for x in ["do you sell", "what products do you sell", "what all products", "which products do you sell", "what do you have", "ningal enthokke products", "enthokke products anu", "entha products", "products undo", "catalogue", "catalog", "show all products"]):
+        return "product_search"
+    if any(x in t for x in ["interested in buying", "i am interested", "i want this", "i will take it", "yes i want", "venam", "vangan thalparyam", "vaangan thalparyam", "buy cheyyan", "edutholam"]):
+        return "purchase_interest"
     if any(x in t for x in ["place an order", "place order", "i want to order", "i want to buy", "want to buy", "buy this", "order this", "how do i order", "how to order", "vaangan", "edukkan", "book cheyy"]):
         return "order_request"
-    # Size questions containing "undo" must be classified before generic stock
-    # availability, otherwise "ethokke size il und" returns only in-stock status.
-    if any(x in t for x in ["size", "sizes", "ethokke size", "which size", "available size", "size available"]):
-        return "product_size"
     has_availability_marker = any(x in t for x in ["available", "stock", " undo", "undo ", "kittumo", "vilkkunnundo", "sell cheyyarundo"])
     has_variant = bool(re.search(r"\b(black|white|red|blue|green|pink|yellow|brown|beige|maroon|purple|grey|gray|orange|navy|cream|lavender|peach)\b", t) or re.search(r"\b(5xl|4xl|3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", t))
     if has_availability_marker and has_variant:

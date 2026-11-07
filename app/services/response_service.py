@@ -182,9 +182,9 @@ async def build_response(
         if policy and intent.intent in {"return_policy_query", "exchange_policy_query"}:
             return policy, "automated"
         return "I'll connect you with our team so they can help with the return/exchange request and confirm the applicable policy. 😊", "human"
-    if intent.intent in {"order_request", "cancel_order", "order_status", "complaint", "delivery_issue"}:
-        if intent.intent == "order_request":
-            message = "Sure 😊 I'll connect you with our team to complete the order."
+    if intent.intent in {"purchase_interest", "order_request", "cancel_order", "order_status", "complaint", "delivery_issue"}:
+        if intent.intent in {"purchase_interest", "order_request"}:
+            message = "Great 😊 I'll connect you with our team so they can help you complete the purchase."
         elif intent.intent == "cancel_order":
             message = "I'll connect you with our team to review your cancellation request. 😊"
         elif intent.intent == "order_status":
@@ -203,9 +203,12 @@ async def build_response(
         return "I'll connect you with our team to confirm any current offers or discounts. 😊", "human"
 
     if intent.intent in {"product_inquiry", "product_details", "media_product_identification", "product_comparison"}:
-        # This branch is entered only for the explicit media/image intent.
-        # Do not infer an image request merely because a product is in context.
-        image_request = intent.intent == "media_product_identification"
+        image_request = any(phrase in (original_text or "").casefold() for phrase in [
+            "image ayaku", "image ayakuo", "image ayakkuo", "image ayakk", "image ayach", "photo ayaku", "photo ayakuo", "photo ayakkuo", "photo ayakk",
+            "send image", "send photo", "image undo", "product image", "jeans nte image",
+            "jeans inte image", "ithinte image", "ithinte photo", "dress nte image",
+            "kurti nte image", "picture ayaku", "pic ayaku",
+        ])
         if image_request and product and product.get("image_url"):
             context["product_id"] = str(product.get("_id", "")) or context.get("product_id")
             if context["product_id"]:
@@ -223,6 +226,19 @@ async def build_response(
         return "Could you share the product name or post link so I can find the right item? 😊", "automated"
 
     if intent.intent == "product_search":
+        # Broad "what do you sell?" questions should list the shop's active catalogue,
+        # not try to keyword-match generic words against the currently selected product.
+        broad_catalogue_query = any(phrase in (original_text or "").casefold() for phrase in [
+            "what products", "what all products", "what do you sell", "what do you have",
+            "ningal enthokke products", "enthokke products anu", "show all products", "catalogue", "catalog"
+        ])
+        if broad_catalogue_query and not has_image:
+            cursor = db().products.find({"client_id": client_id, "active": {"$ne": False}}).limit(8)
+            all_products = [item async for item in cursor]
+            if all_products:
+                context["reply_product_ids"] = [str(item.get("_id")) for item in all_products[:3] if item.get("_id")]
+                return _product_list(all_products, "Here are some products available in our store 😊"), "automated"
+            return "We're updating our catalogue at the moment 😊 Please tell me what type of clothing you're looking for, and I'll check for you.", "automated"
         if has_image and not visual_candidates:
             return "I couldn't confidently match the photo to a catalogue item. Could you share a clearer photo or the product/post link? 😊", "automated"
         if has_image and visual_candidates and not visual_filtered_candidates:
@@ -243,6 +259,7 @@ async def build_response(
             context["last_search_offset"] = offset + len(results)
             result_ids = [str(item.get("_id", "")) for item in results if item.get("_id")]
             if result_ids:
+                context["reply_product_ids"] = result_ids[:3]
                 context["last_products"] = result_ids[:5] + [x for x in context.get("last_products", []) if x not in result_ids][:max(0, 5-len(result_ids))]
                 if len(results) == 1:
                     context["product_id"] = result_ids[0]
@@ -281,7 +298,12 @@ async def build_response(
         ):
             return "I found visually similar designs, but none matched all the size/budget details you mentioned. Would you like to see the closest designs instead? 😊", "automated"
 
-        target = visual_target(visual_filtered_candidates) if has_image else product
+        # An explicitly named new category (e.g. "shirt undo?" after discussing jeans)
+        # overrides the old conversation product. Never answer about the previous item.
+        requested_category = str(intent.entities.get("CATEGORY", "") or "").strip().lower()
+        current_product_category_text = " ".join(str((product or {}).get(k, "") or "") for k in ("name", "category", "subcategory", "product_type", "department")).lower()
+        category_switch = bool(requested_category and requested_category not in current_product_category_text)
+        target = visual_target(visual_filtered_candidates) if has_image else (None if category_switch else product)
         if not target and has_image and visual_filtered_candidates:
             return _product_list(visual_filtered_candidates[:3], "These are the closest matching designs:") + "\nWhich one should I check? 😊", "automated"
         if not target:
@@ -296,6 +318,8 @@ async def build_response(
             elif len(results) == 1:
                 target = results[0]
             elif len(results) > 1:
+                context["reply_product_ids"] = [str(item.get("_id")) for item in results[:3] if item.get("_id")]
+                context["last_products"] = context["reply_product_ids"] + [x for x in context.get("last_products", []) if x not in context["reply_product_ids"]][:2]
                 return _product_list(results), "automated"
 
         if not target:
@@ -317,10 +341,15 @@ async def build_response(
             if size:
                 listed = size.upper() in [str(x).upper() for x in target.get("sizes", [])]
                 return (f"Yes 😊 {size.upper()} is available for {name}." if available and listed else f"Sorry, {size.upper()} is not listed as available for {name}.", "automated")
-            sizes = [str(x).upper() for x in (target.get("sizes", []) or []) if str(x).strip()]
-            if sizes:
-                return f"Available sizes for {name}: {', '.join(sizes)}. 😊", "automated"
-            return (f"Yes 😊 {name} is currently available, but I don't have its size options listed." if available else f"Sorry, {name} is currently out of stock."), "automated"
+            if available:
+                details = []
+                if target.get("sizes"):
+                    details.append("sizes: " + ", ".join(str(x) for x in target.get("sizes", [])))
+                if target.get("colors"):
+                    details.append("colours: " + ", ".join(str(x) for x in target.get("colors", [])))
+                suffix = (" Available " + "; ".join(details) + ".") if details else ""
+                return (f"Yes 😊 {name} is available for {_display_price(target)}.{suffix} Would you like to see a photo?", "automated")
+            return (f"Sorry, {name} is currently out of stock.", "automated")
         if intent.intent == "product_color":
             colors = target.get("colors", [])
             requested_color = str(intent.entities.get("COLOR", "")).strip()
@@ -336,54 +365,14 @@ async def build_response(
             link = target.get("product_url", "")
             return (f"Sure 😊 Here is the link for {name}: {link}" if link else f"I don't have a product link listed for {name}.", "automated")
         if intent.intent == "product_alternatives":
-            current_id = str(target.get("_id", ""))
-            # Try progressively broader, catalogue-grounded searches. Never invent
-            # an alternative and never return the product the customer already saw.
-            # Catalogue records are not always consistently tagged. Prefer
-            # structured taxonomy, then infer a conservative apparel category
-            # from the current product name so e.g. "baggy jeans" can find
-            # other jeans even when category/product_type fields are empty.
-            query_parts = [
-                " ".join(str(target.get(k, "") or "") for k in ("category", "subcategory", "product_type")),
-                " ".join(str(target.get(k, "") or "") for k in ("category", "department")),
-                str(target.get("category", "") or ""),
-                str(target.get("product_type", "") or ""),
-            ]
-            name_text = str(target.get("name", "") or "").casefold()
-            apparel_terms = (
-                "jeans", "trousers", "pants", "leggings", "palazzo", "kurti",
-                "saree", "sari", "dress", "gown", "shirt", "t-shirt",
-                "tshirt", "top", "skirt", "abaya", "dupatta", "co-ord",
+            results = await search_products(
+                client_id,
+                f"{name} {target.get('category', '')} similar alternative",
+                {},
+                limit=3,
+                exclude_product_id=str(target["_id"]),
             )
-            inferred_category = next((term for term in apparel_terms if term in name_text), "")
-            if inferred_category:
-                query_parts.append(inferred_category)
-            # Last fallback: use only the product's taxonomy/name, not the
-            # customer's generic phrase, and always exclude the current item.
-            if not any(str(q).strip() for q in query_parts):
-                query_parts.append(str(target.get("name", "") or ""))
-            results = []
-            seen = {current_id} if current_id else set()
-            for query in query_parts:
-                query = query.strip()
-                if not query:
-                    continue
-                candidates = await search_products(
-                    client_id, query, {}, limit=10,
-                    exclude_product_id=current_id or None,
-                )
-                for candidate in candidates:
-                    candidate_id = str(candidate.get("_id", ""))
-                    if candidate_id and candidate_id not in seen:
-                        seen.add(candidate_id)
-                        results.append(candidate)
-                    elif not candidate_id:
-                        results.append(candidate)
-                    if len(results) >= 3:
-                        break
-                if len(results) >= 3:
-                    break
-            return (_product_list(results[:3], "Here are some other designs:"), "automated") if results else ("I couldn't find another design in the active catalogue right now. If you add more jeans/designs to the catalogue, I can show those too. 😊", "automated")
+            return (_product_list(results, "Here are some other designs:"), "automated") if results else ("I couldn't find another matching design in the catalogue.", "automated")
 
     if automation.get("human_handoff_on_unknown", True):
         return "I'm not fully sure about that. I'll connect you with our team so you get the correct answer.", "human"

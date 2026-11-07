@@ -33,17 +33,23 @@ def test_short_price_followup_is_classified_as_product_price():
     assert detect("Jeans nte price ethraya").intent == "product_price"
 
 
-def test_manglish_size_list_followup():
-    assert detect("ethokke size il und").intent == "product_size"
+def test_manglish_category_availability_queries():
+    jeans = detect("Ningal jeans vilkkunnundo?")
+    assert jeans.intent == "product_availability"
+    assert jeans.entities.get("CATEGORY") == "jeans"
+    shirt = detect("Shirt vilkkunnundo?")
+    assert shirt.intent == "product_availability"
+    assert shirt.entities.get("CATEGORY") == "shirt"
 
 
-def test_manglish_alternative_designs():
-    assert detect("Vere designs undo").intent == "product_alternatives"
+def test_generic_catalogue_browse_in_manglish():
+    result = detect("Ningal enthokke products anu sell cheyyunnath")
+    assert result.intent == "product_search"
 
 
-def test_manglish_other_colour_followup():
-    assert detect("Color vere undo").intent == "product_color"
+def test_manglish_picture_request_variants():
+    assert detect("Pic ayakuo").intent == "media_product_identification"
 
 
-def test_manglish_purchase_intent():
-    assert detect("Ith order cheyyanam").intent == "order_request"
+def test_purchase_interest_in_manglish():
+    assert detect("Ee jeans vangan thalparyam und").intent == "purchase_interest"
