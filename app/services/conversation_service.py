@@ -98,6 +98,11 @@ async def process_inbound(
         return {"status": "human", "reply": None, "intent": "human_handoff", "conversation_id": str(convo["_id"])}
 
     context = dict(convo.get("context", {}))
+    # These are one-message delivery instructions. Clear any stale values before
+    # understanding this inbound message so an earlier photo/catalogue request
+    # cannot cause an image to be resent after a greeting or unrelated question.
+    context.pop("send_product_image", None)
+    context.pop("reply_product_ids", None)
     # Add a short, tenant/conversation-scoped window so follow-ups like "what about blue?"
     # can be interpreted without sending an unbounded conversation transcript.
     history_cursor = database.messages.find(
@@ -281,13 +286,17 @@ async def process_inbound(
             # For catalogue browsing, send up to three product photos after the text list.
             # For a single product question/image request, send only the resolved product photo.
             outgoing_products = []
+            # A single-product photo is sent only when response_service explicitly
+            # marked this turn as a photo request/confirmation. Catalogue search
+            # results may independently provide reply_product_ids for previews.
+            should_send_product_image = bool(context.pop("send_product_image", False))
             reply_product_ids = context.pop("reply_product_ids", [])
             if reply_product_ids:
                 for reply_product_id in reply_product_ids[:3]:
                     candidate = await get_product(client_id, reply_product_id)
                     if candidate and candidate.get("image_url"):
                         outgoing_products.append(candidate)
-            if not outgoing_products and product and product.get("image_url"):
+            elif should_send_product_image and product and product.get("image_url"):
                 outgoing_products = [product]
             if not outgoing_products and image_url and visual_candidates:
                 from app.core.config import settings
