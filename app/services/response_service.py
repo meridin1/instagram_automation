@@ -89,6 +89,28 @@ async def build_response(
             return items[0]
         return None
 
+    # If the shop just asked whether the customer wants a photo, treat a short
+    # affirmative reply as consent to send the current product image. Require the
+    # exact preceding photo question so unrelated "yes" replies do not trigger media.
+    recent_messages = context.get("recent_messages") or []
+    last_shop_message = next(
+        (item for item in reversed(recent_messages) if item.get("role") == "shop"),
+        {},
+    )
+    affirmative_photo_replies = {
+        "yes", "yes please", "yeah", "yep", "sure", "okay", "ok",
+        "venam", "ayakku", "ayakuo", "send cheyyu",
+    }
+    if (
+        (original_text or "").strip().casefold().strip(" .!?") in affirmative_photo_replies
+        and "would you like to see a photo" in str(last_shop_message.get("text", "")).casefold()
+        and product
+        and product.get("image_url")
+    ):
+        context["send_product_image"] = True
+        context["product_id"] = str(product.get("_id", "")) or context.get("product_id")
+        return f"Sure 😊 Here's the photo of {product.get('name', 'this product')}.", "automated"
+
     # Attachment-only messages can now be matched against indexed catalogue images.
     # If no confident visual match exists, ask for clarification rather than guessing.
     if original_text == "[instagram_attachment:image]":
@@ -210,6 +232,7 @@ async def build_response(
             "kurti nte image", "picture ayaku", "pic ayaku",
         ])
         if image_request and product and product.get("image_url"):
+            context["send_product_image"] = True
             context["product_id"] = str(product.get("_id", "")) or context.get("product_id")
             if context["product_id"]:
                 context["last_products"] = [context["product_id"]] + [x for x in context.get("last_products", []) if x != context["product_id"]]
