@@ -192,6 +192,18 @@ def _rule_intent(text: str) -> str:
         return "cancel_order"
     if any(x in t for x in ["where is my order", "order status", "track my order", "tracking", "order evide", "parcel evide"]):
         return "order_status"
+    # Manglish spellings of "do you sell ...?" vary widely (e.g.
+    # "vilkkunnundo", "vilkkalindo"). When a clothing category and a sell-verb
+    # stem occur together, classify it as a product availability question
+    # before the ML model can mistake an unfamiliar spelling for a greeting.
+    clothing_category = re.search(
+        r"\\b(kurti|dress|saree|sari|top|shirt|shirts|tshirt|tshirts|t-shirt|t-shirts|jeans|pant|pants|trouser|trousers|leggings|palazzo|dupatta|abaya|gown|skirt|shorts|hoodie|sweatshirt)\\b",
+        t,
+    )
+    manglish_sell_verb = re.search(r"\\bvilk\\w*\\b|\\bsell\\s+cheyy\\w*\\b", t)
+    if clothing_category and manglish_sell_verb:
+        return "product_availability"
+
     if re.fullmatch(r"(?:hi|hello|hey|hai|hii|halo|hlo|good morning|good evening|good afternoon|namaskaram|salam)[!.\s😊🙂]*", t):
         return "greeting"
     if any(x in t for x in ["thank you", "thanks", "thankyou", "nanni", "thx"]):
