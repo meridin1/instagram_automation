@@ -53,3 +53,13 @@ def test_manglish_picture_request_variants():
 
 def test_purchase_interest_in_manglish():
     assert detect("Ee jeans vangan thalparyam und").intent == "purchase_interest"
+
+def test_manglish_typo_sell_question_is_product_availability_not_greeting():
+    result = detect("Ningal jeans vilkkalindo?")
+    assert result.intent == "product_availability"
+    assert result.entities.get("CATEGORY") == "jeans"
+
+
+def test_manglish_sell_variants_are_product_availability():
+    for message in ("Ningal jeans vilkkunnundo?", "Jeans vilkumo?", "Shirt sell cheyyunundo?"):
+        assert detect(message).intent == "product_availability"
