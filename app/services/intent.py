@@ -197,10 +197,10 @@ def _rule_intent(text: str) -> str:
     # stem occur together, classify it as a product availability question
     # before the ML model can mistake an unfamiliar spelling for a greeting.
     clothing_category = re.search(
-        r"\\b(kurti|dress|saree|sari|top|shirt|shirts|tshirt|tshirts|t-shirt|t-shirts|jeans|pant|pants|trouser|trousers|leggings|palazzo|dupatta|abaya|gown|skirt|shorts|hoodie|sweatshirt)\\b",
+        r"\b(kurti|dress|saree|sari|top|shirt|shirts|tshirt|tshirts|t-shirt|t-shirts|jeans|pant|pants|trouser|trousers|leggings|palazzo|dupatta|abaya|gown|skirt|shorts|hoodie|sweatshirt)\b",
         t,
     )
-    manglish_sell_verb = re.search(r"\\bvilk\\w*\\b|\\bsell\\s+cheyy\\w*\\b", t)
+    manglish_sell_verb = re.search(r"\bvilk\w*\b|\bsell\s+cheyy\w*\b", t)
     if clothing_category and manglish_sell_verb:
         return "product_availability"
 
