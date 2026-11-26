@@ -8,6 +8,14 @@ from app.database.mongo import db
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 ORDER_STATUSES = {"pending", "confirmed", "processing", "shipped", "delivered", "cancelled"}
+ALLOWED_TRANSITIONS = {
+    "pending": {"confirmed", "cancelled"},
+    "confirmed": {"processing", "cancelled"},
+    "processing": {"shipped", "cancelled"},
+    "shipped": {"delivered"},
+    "delivered": set(),
+    "cancelled": set(),
+}
 
 
 class OrderItemInput(BaseModel):
@@ -15,6 +23,13 @@ class OrderItemInput(BaseModel):
     quantity: int = Field(ge=1, le=100)
     size: str | None = Field(default=None, max_length=40)
     color: str | None = Field(default=None, max_length=60)
+
+    @field_validator("product_id")
+    @classmethod
+    def valid_product_id(cls, value):
+        if not ObjectId.is_valid(value):
+            raise ValueError("Invalid product id")
+        return value
 
 
 class OrderCreate(BaseModel):
@@ -25,6 +40,13 @@ class OrderCreate(BaseModel):
     delivery_pincode: str = Field(min_length=4, max_length=12)
     notes: str = Field(default="", max_length=1000)
     items: list[OrderItemInput] = Field(min_length=1, max_length=20)
+
+    @field_validator("conversation_id")
+    @classmethod
+    def valid_conversation_id(cls, value):
+        if value is not None and not ObjectId.is_valid(value):
+            raise ValueError("Invalid conversation id")
+        return value
 
     @field_validator("customer_name", "customer_phone", "delivery_address", "delivery_pincode")
     @classmethod
@@ -83,7 +105,7 @@ async def create_order(payload: OrderCreate, client_id: str = Depends(get_client
             raise HTTPException(404, "Conversation not found for this workspace")
 
     # Resolve every product inside this tenant and snapshot its catalogue facts.
-    # Orders deliberately do not reserve stock; the owner confirms availability first.
+    # Stock is checked here but not reserved: the owner must confirm the order.
     snapshots = []
     total = 0.0
     for item in payload.items:
@@ -141,18 +163,18 @@ async def create_order(payload: OrderCreate, client_id: str = Depends(get_client
 
 @router.patch("/{order_id}/status")
 async def update_order_status(order_id: str, payload: OrderStatusUpdate, client_id: str = Depends(get_client_id)):
-    try:
-        oid = ObjectId(order_id)
-    except Exception:
+    if not ObjectId.is_valid(order_id):
         raise HTTPException(400, "Invalid order id")
+    oid = ObjectId(order_id)
     existing = await db().orders.find_one({"_id": oid, "client_id": client_id})
     if not existing:
         raise HTTPException(404, "Order not found")
     current = existing.get("status", "pending")
-    if current in {"delivered", "cancelled"} and payload.status != current:
-        raise HTTPException(409, f"A {current} order cannot be changed")
+    if payload.status != current and payload.status not in ALLOWED_TRANSITIONS.get(current, set()):
+        raise HTTPException(409, f"Order cannot move from {current} to {payload.status}")
     await db().orders.update_one(
-        {"_id": oid, "client_id": client_id},
+        {"_id": oid, "client_id": client_id, "status": current},
         {"$set": {"status": payload.status, "updated_at": datetime.now(timezone.utc)}},
     )
-    return _serialize(await db().orders.find_one({"_id": oid, "client_id": client_id}))
+    updated = await db().orders.find_one({"_id": oid, "client_id": client_id})
+    return _serialize(updated)
