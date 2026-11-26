@@ -108,6 +108,9 @@ async def create_order(payload: OrderCreate, client_id: str = Depends(get_client
     # Stock is checked here but not reserved: the owner must confirm the order.
     snapshots = []
     total = 0.0
+    requested_totals = {}
+    for requested_item in payload.items:
+        requested_totals[requested_item.product_id] = requested_totals.get(requested_item.product_id, 0) + requested_item.quantity
     for item in payload.items:
         product = await database.products.find_one({
             "_id": ObjectId(item.product_id),
@@ -116,7 +119,7 @@ async def create_order(payload: OrderCreate, client_id: str = Depends(get_client
         })
         if not product:
             raise HTTPException(422, "One or more products are unavailable in this workspace")
-        if not product.get("stock", False) or int(product.get("quantity", 0)) < item.quantity:
+        if not product.get("stock", False) or int(product.get("quantity", 0)) < requested_totals[item.product_id]:
             raise HTTPException(409, f"Insufficient stock for {product.get('name', 'selected product')}")
         if item.size and item.size not in (product.get("sizes") or []):
             raise HTTPException(422, f"Size {item.size} is not available for {product.get('name')}")
