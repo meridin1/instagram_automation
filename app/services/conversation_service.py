@@ -79,7 +79,48 @@ async def _process_inbound_unlocked(
             "external_message_id": external_message_id,
         })
         if existing:
-            return {"status": "duplicate", "reply": None}
+            previous_reply = await database.messages.find_one({
+                "client_id": client_id,
+                "conversation_id": existing.get("conversation_id"),
+                "reply_to_external_message_id": external_message_id,
+            })
+            if previous_reply:
+                # Retry only an explicitly failed send. A pending send may have
+                # reached Meta before a network timeout, so retrying it blindly
+                # could send the customer a duplicate message.
+                if previous_reply.get("delivery_status") == "failed" and send_to_instagram:
+                    retry_convo = await database.conversations.find_one({
+                        "_id": existing.get("conversation_id"), "client_id": client_id,
+                    })
+                    retry_account_query = {"client_id": client_id, "active": True}
+                    if retry_convo and retry_convo.get("instagram_account_id"):
+                        try:
+                            retry_account_query["_id"] = ObjectId(retry_convo["instagram_account_id"])
+                        except Exception:
+                            retry_account_query["_id"] = None
+                    retry_account = await database.instagram_accounts.find_one(retry_account_query)
+                    if retry_account and retry_convo:
+                        retry_result = await InstagramService().send_text(
+                            retry_account["instagram_user_id"],
+                            account_access_token(retry_account),
+                            retry_convo["sender_id"],
+                            previous_reply["text"],
+                            await get_client_meta_config(client_id),
+                        )
+                        await database.messages.update_one(
+                            {"_id": previous_reply["_id"], "client_id": client_id},
+                            {"$set": {
+                                "delivery_status": "sent",
+                                "meta_message_id": retry_result.get("message_id") if isinstance(retry_result, dict) else None,
+                                "delivery_error": None,
+                                "delivery_updated_at": now(),
+                            }},
+                        )
+                        return {"status": "duplicate_retried", "reply": previous_reply["text"]}
+                return {"status": "duplicate", "reply": None}
+            # An inbound event may have been stored before processing crashed.
+            # Continue processing it; the unique external-message index protects
+            # the original inbound record from being inserted twice.
 
 
     rate = int(client_doc.get("rate_limit_per_minute", 60) or 60)
@@ -186,9 +227,13 @@ async def _process_inbound_unlocked(
     try:
         await database.messages.insert_one(inbound_doc)
     except Exception:
-        if external_message_id:
-            return {"status": "duplicate", "reply": None}
-        raise
+        if external_message_id and await database.messages.find_one({
+            "client_id": client_id, "external_message_id": external_message_id,
+        }):
+            # Existing inbound record from a prior failed attempt; continue.
+            pass
+        else:
+            raise
 
     response_started = time.monotonic()
     reply, status = await build_response(
@@ -231,6 +276,7 @@ async def _process_inbound_unlocked(
         "direction": "outbound",
         "sender_id": "meridin",
         "text": reply,
+        "reply_to_external_message_id": external_message_id,
         "delivery_status": "pending" if send_to_instagram else "sent",
         "created_at": now(),
     })
