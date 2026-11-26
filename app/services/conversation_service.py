@@ -2,7 +2,10 @@ from datetime import datetime, timezone
 import asyncio
 import logging
 import time
+import uuid
 from bson import ObjectId
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from app.database.mongo import db
 from app.services.product_service import get_product
 from app.services.ai_orchestrator import understand
@@ -419,15 +422,46 @@ def serialize_conversation(doc):
     }
 
 
-# Serialize messages for the same customer within this application process.
-# Run a single application worker unless this is replaced by a distributed MongoDB lock.
-_conversation_locks: dict[str, asyncio.Lock] = {}
-
-
+# A MongoDB-backed lease serializes a customer's messages across application
+# workers/instances. The lease expires automatically if a worker crashes.
 async def process_inbound(*, client_id: str, sender_id: str, **kwargs):
+    database = db()
     lock_key = f"{client_id}:{sender_id}"
-    lock = _conversation_locks.setdefault(lock_key, asyncio.Lock())
-    async with lock:
+    owner = uuid.uuid4().hex
+    acquired = False
+    deadline = time.monotonic() + 35
+
+    while not acquired:
+        current = now()
+        try:
+            lock_doc = await database.conversation_locks.find_one_and_update(
+                {
+                    "_id": lock_key,
+                    "$or": [
+                        {"lease_until": {"$lte": current}},
+                        {"lease_until": {"$exists": False}},
+                    ],
+                },
+                {"$set": {
+                    "owner": owner,
+                    "lease_until": current + __import__("datetime").timedelta(seconds=120),
+                    "updated_at": current,
+                }},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            acquired = bool(lock_doc and lock_doc.get("owner") == owner)
+        except DuplicateKeyError:
+            acquired = False
+
+        if not acquired:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Timed out waiting for conversation processing lock")
+            await asyncio.sleep(0.1)
+
+    try:
         return await _process_inbound_unlocked(
             client_id=client_id, sender_id=sender_id, **kwargs
         )
+    finally:
+        await database.conversation_locks.delete_one({"_id": lock_key, "owner": owner})
