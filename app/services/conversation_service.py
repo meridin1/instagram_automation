@@ -359,47 +359,47 @@ async def _process_inbound_unlocked(
         )
         result["meta"] = meta
 
-            # Send the matched product photo after its text reply. Prefer a text-matched
-            # product; for image-only DMs, send a photo only for a confident visual match.
-            # For catalogue browsing, send up to three product photos after the text list.
-            # For a single product question/image request, send only the resolved product photo.
-            outgoing_products = []
-            # A single-product photo is sent only when response_service explicitly
-            # marked this turn as a photo request/confirmation. Catalogue search
-            # results may independently provide reply_product_ids for previews.
-            should_send_product_image = bool(context.pop("send_product_image", False))
-            reply_product_ids = context.pop("reply_product_ids", [])
-            if reply_product_ids:
-                for reply_product_id in reply_product_ids[:3]:
-                    candidate = await get_product(client_id, reply_product_id)
-                    if candidate and candidate.get("image_url"):
-                        outgoing_products.append(candidate)
-            elif should_send_product_image and product and product.get("image_url"):
-                outgoing_products = [product]
-            if not outgoing_products and image_url and visual_candidates:
-                from app.core.config import settings
-                top = visual_candidates[0]
-                second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
-                top_score = float(top.get("visual_similarity", 0))
-                if top_score >= settings.visual_similarity_threshold and (len(visual_candidates) == 1 or top_score - second_score >= settings.visual_match_margin) and top.get("image_url"):
-                    outgoing_products = [top]
-            if outgoing_products:
-                image_results = []
-                for outgoing_product in outgoing_products[:3]:
-                    try:
-                        image_result = await instagram_service.send_image(
-                            account["instagram_user_id"],
-                            account_access_token(account),
-                            sender_id,
-                            outgoing_product["image_url"],
-                            meta_config,
-                        )
-                        image_results.append({"product_id": str(outgoing_product.get("_id")), "result": image_result})
-                    except Exception:
-                        logger.exception("Could not send product image: client_id=%s", client_id)
-                        image_results.append({"product_id": str(outgoing_product.get("_id")), "error": "image_send_failed"})
-                result["meta_images"] = image_results
-                result["product_image_sent"] = any("error" not in item for item in image_results)
+        # Send the matched product photo after its text reply. Prefer a text-matched
+        # product; for image-only DMs, send a photo only for a confident visual match.
+        # For catalogue browsing, send up to three product photos after the text list.
+        # For a single product question/image request, send only the resolved product photo.
+        outgoing_products = []
+        # A single-product photo is sent only when response_service explicitly
+        # marked this turn as a photo request/confirmation. Catalogue search
+        # results may independently provide reply_product_ids for previews.
+        should_send_product_image = bool(context.pop("send_product_image", False))
+        reply_product_ids = context.pop("reply_product_ids", [])
+        if reply_product_ids:
+            for reply_product_id in reply_product_ids[:3]:
+                candidate = await get_product(client_id, reply_product_id)
+                if candidate and candidate.get("image_url"):
+                    outgoing_products.append(candidate)
+        elif should_send_product_image and product and product.get("image_url"):
+            outgoing_products = [product]
+        if not outgoing_products and image_url and visual_candidates:
+            from app.core.config import settings
+            top = visual_candidates[0]
+            second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
+            top_score = float(top.get("visual_similarity", 0))
+            if top_score >= settings.visual_similarity_threshold and (len(visual_candidates) == 1 or top_score - second_score >= settings.visual_match_margin) and top.get("image_url"):
+                outgoing_products = [top]
+        if outgoing_products:
+            image_results = []
+            for outgoing_product in outgoing_products[:3]:
+                try:
+                    image_result = await instagram_service.send_image(
+                        account["instagram_user_id"],
+                        account_access_token(account),
+                        sender_id,
+                        outgoing_product["image_url"],
+                        meta_config,
+                    )
+                    image_results.append({"product_id": str(outgoing_product.get("_id")), "result": image_result})
+                except Exception:
+                    logger.exception("Could not send product image: client_id=%s", client_id)
+                    image_results.append({"product_id": str(outgoing_product.get("_id")), "error": "image_send_failed"})
+            result["meta_images"] = image_results
+            result["product_image_sent"] = any("error" not in item for item in image_results)
 
     return result
 
