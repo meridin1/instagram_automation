@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.core.config import settings
 
@@ -79,4 +80,5 @@ async def ensure_indexes():
     await database.llm_usage_events.create_index([("client_id", 1), ("created_at", -1)])
     await database.knowledge_documents.create_index([("client_id", 1), ("active", 1), ("updated_at", -1)])
     await database.ai_evaluation_events.create_index([("client_id", 1), ("created_at", -1)])
-
+    await database.orders.create_index([("client_id", 1), ("created_at", -1)])
+    await database.orders.create_index([("client_id", 1), ("status", 1), ("created_at", -1)])
