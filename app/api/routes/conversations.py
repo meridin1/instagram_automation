@@ -79,11 +79,45 @@ async def human_reply(conversation_id: str, payload: HumanMessage, client_id: st
     account = await db().instagram_accounts.find_one(account_query)
     if not account:
         raise HTTPException(400, "No active Instagram account")
+    from datetime import datetime, timezone
     from app.services.instagram_service import InstagramService
-    result = await InstagramService().send_text(account["instagram_user_id"], account_access_token(account), convo["sender_id"], payload.text, await get_client_meta_config(client_id))
-    await db().messages.insert_one({
-        "conversation_id": oid, "client_id": client_id, "direction": "outbound",
-        "sender_id": "human", "text": payload.text, "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+
+    created_at = datetime.now(timezone.utc)
+    message_result = await db().messages.insert_one({
+        "conversation_id": oid,
+        "client_id": client_id,
+        "direction": "outbound",
+        "sender_id": "human",
+        "text": payload.text,
+        "delivery_status": "pending",
+        "created_at": created_at,
     })
+    # Sending a manual reply means a human is actively handling this thread.
+    await db().conversations.update_one(
+        {"_id": oid, "client_id": client_id},
+        {"$set": {"status": "human", "automation_enabled": False, "updated_at": created_at}},
+    )
+    try:
+        result = await InstagramService().send_text(
+            account["instagram_user_id"],
+            account_access_token(account),
+            convo["sender_id"],
+            payload.text,
+            await get_client_meta_config(client_id),
+        )
+    except Exception as exc:
+        await db().messages.update_one(
+            {"_id": message_result.inserted_id, "client_id": client_id},
+            {"$set": {"delivery_status": "failed", "delivery_error": str(exc)[:500]}},
+        )
+        raise
+
+    await db().messages.update_one(
+        {"_id": message_result.inserted_id, "client_id": client_id},
+        {"$set": {
+            "delivery_status": "sent",
+            "meta_message_id": result.get("message_id") if isinstance(result, dict) else None,
+        }},
+    )
     await record_message(client_id, "outbound", payload.text)
     return {"ok": True, "meta": result}
