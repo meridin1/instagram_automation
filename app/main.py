@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.database.mongo import connect_db, close_db, ensure_indexes
-from app.api.routes import health, auth, clients, products, conversations, instagram, test_api, search, admin, catalogue_options, knowledge, ai_analytics
+from app.api.routes import health, auth, clients, products, conversations, instagram, test_api, search, admin, catalogue_options, knowledge, ai_analytics, orders
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
@@ -41,6 +41,7 @@ app.include_router(auth.router)
 app.include_router(clients.router)
 app.include_router(products.router)
 app.include_router(conversations.router)
+app.include_router(orders.router)
 app.include_router(instagram.router)
 app.include_router(test_api.router)
 app.include_router(search.router)
