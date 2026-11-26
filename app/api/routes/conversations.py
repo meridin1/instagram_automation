@@ -30,7 +30,10 @@ async def messages(conversation_id: str, client_id: str = Depends(get_client_id)
         {
             "id": str(m["_id"]),
             "direction": m["direction"],
+            "sender_id": m.get("sender_id"),
             "text": m["text"],
+            "delivery_status": m.get("delivery_status", "sent"),
+            "delivery_error": m.get("delivery_error"),
             "intent": m.get("intent"),
             "intent_source": m.get("intent_source"),
             "entities": m.get("entities", {}),
