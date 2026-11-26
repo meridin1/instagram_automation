@@ -89,3 +89,20 @@ def test_instagram_signature_validation():
     assert InstagramService.verify_signature(body, f"sha256={digest}", secret)
     assert not InstagramService.verify_signature(body, f"sha256={digest}", "wrong-secret")
     assert not InstagramService.verify_signature(body, "invalid", secret)
+
+
+def test_extracts_self_authored_business_message():
+    payload = {
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "business-1"},
+                "recipient": {"id": "customer-1"},
+                "message": {"mid": "mid-self-1", "text": "We have this in blue.", "is_self": True},
+            }]
+        }]
+    }
+
+    events = _extract_message_events(payload)
+
+    assert len(events) == 1
+    assert events[0]["is_echo"] is True
