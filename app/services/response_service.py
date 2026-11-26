@@ -127,6 +127,30 @@ async def build_response(
         if visual_candidates:
             return _product_list(visual_candidates[:3], "These are the closest catalogue image matches:") + "\nWhich design do you mean? 😊", "automated"
         return "I received your photo 😊 I couldn't confidently match it to the catalogue. Could you send the product name or post link?", "automated"
+    if original_text in {"[instagram_attachment:post]", "[instagram_attachment:story_reply]"}:
+        source_label = "story" if original_text.endswith("story_reply]") else "post"
+        if product:
+            product_id = str(product.get("_id", "")) or context.get("product_id")
+            if product_id:
+                context["product_id"] = product_id
+            details = [f"Price: {_display_price(product)}"]
+            if product.get("sizes"):
+                details.append("Sizes: " + ", ".join(str(x) for x in product.get("sizes", [])))
+            if product.get("colors"):
+                details.append("Colours: " + ", ".join(str(x) for x in product.get("colors", [])))
+            return (
+                f"Thanks for sharing/replying to our {source_label} 😊 "
+                f"This is linked to {product.get('name', 'a catalogue item')}. "
+                + " | ".join(details)
+                + " What would you like to know?",
+                "automated",
+            )
+        return (
+            f"Thanks for your {source_label} message 😊 Could you tell me the product name "
+            "or what you'd like to know? I'll check the catalogue for you.",
+            "automated",
+        )
+
     if original_text == "[instagram_attachment:audio]":
         return "I received your voice message 😊 I can’t transcribe voice notes yet. Could you type your question here?", "automated"
     if original_text == "[instagram_attachment:video]":

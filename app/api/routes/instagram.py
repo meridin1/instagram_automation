@@ -57,33 +57,63 @@ def _extract_message_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
             attachments = message.get("attachments") or []
             image_url = None
             attachment_type = None
+
+            # A story reply identifies the story in reply_to.story. A shared
+            # Instagram post can arrive as an ig_post attachment (legacy share
+            # is retained during Meta's gradual migration).
+            reply_to = message.get("reply_to") or {}
+            story = reply_to.get("story") or {}
+            story_id = story.get("id")
+            story_url = story.get("url")
+            post_media_id = message.get("ig_post_media_id")
+
+            attachment_types = set()
             for attachment in attachments:
                 if not isinstance(attachment, dict):
                     continue
                 kind = str(attachment.get("type", "attachment")).lower()
+                attachment_types.add(kind)
+                attachment_payload = attachment.get("payload") or {}
                 if kind == "image" and not image_url:
                     attachment_type = "image"
-                    image_url = (attachment.get("payload") or {}).get("url")
+                    image_url = attachment_payload.get("url")
+                elif kind in {"ig_post", "share"}:
+                    attachment_type = kind
+                    post_media_id = (
+                        post_media_id
+                        or attachment.get("ig_post_media_id")
+                        or attachment_payload.get("ig_post_media_id")
+                        or attachment_payload.get("media_id")
+                        or attachment_payload.get("id")
+                    )
                 elif attachment_type is None:
                     attachment_type = kind
 
-            # Represent media as an internal marker. The conversation service
-            # can decide how to process the marker.
-            if not text and attachments:
-                attachment_types = {
-                    str(item.get("type", "attachment")).lower()
-                    for item in attachments
-                    if isinstance(item, dict)
-                }
+            # Prefer the story ID for a story reply; otherwise use the shared
+            # post's media ID. These IDs are resolved only through this tenant's
+            # explicit product_mappings records.
+            source_type = (
+                "story_reply" if story_id
+                else "shared_post" if post_media_id
+                else "dm"
+            )
+            source_id = str(story_id or post_media_id) if (story_id or post_media_id) else None
 
+            # Represent attachment-only messages as internal markers. A mapped
+            # story/post can then be described from the tenant's catalogue.
+            if not text and attachments:
                 if "image" in attachment_types:
                     text = "[instagram_attachment:image]"
                 elif "audio" in attachment_types:
                     text = "[instagram_attachment:audio]"
                 elif "video" in attachment_types:
                     text = "[instagram_attachment:video]"
+                elif post_media_id:
+                    text = "[instagram_attachment:post]"
                 else:
                     text = "[instagram_attachment:other]"
+            elif not text and story_id:
+                text = "[instagram_attachment:story_reply]"
 
             # Ignore events that do not contain a supported message.
             if not text:
@@ -103,6 +133,9 @@ def _extract_message_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     "image_url": image_url,
                     "attachment_type": attachment_type,
                     "has_image": bool(image_url),
+                    "source_type": source_type,
+                    "source_id": source_id,
+                    "source_url": story_url,
                 }
             )
 
@@ -604,6 +637,8 @@ async def receive_webhook(client_id: str, request: Request):
                 send_to_instagram=True,
                 external_message_id=message_id,
                 image_url=event.get("image_url"),
+                source_type=event.get("source_type", "dm"),
+                source_id=event.get("source_id"),
             )
             await db().webhook_events.update_one(
                 event_filter,
