@@ -2,7 +2,10 @@ from datetime import datetime, timezone
 import asyncio
 import logging
 import time
+import uuid
 from bson import ObjectId
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from app.database.mongo import db
 from app.services.product_service import get_product
 from app.services.ai_orchestrator import understand
@@ -56,7 +59,7 @@ async def _resolve_source_product(client_id: str, source_id: str | None):
     return await get_product(client_id, mapping["product_id"])
 
 
-async def process_inbound(
+async def _process_inbound_unlocked(
     client_id: str,
     sender_id: str,
     text: str,
@@ -74,9 +77,56 @@ async def process_inbound(
         return {"status": "client_disabled", "reply": None}
 
     if external_message_id:
-        existing = await database.messages.find_one({"client_id": client_id, "external_message_id": external_message_id})
+        existing = await database.messages.find_one({
+            "client_id": client_id,
+            "external_message_id": external_message_id,
+        })
         if existing:
-            return {"status": "duplicate", "reply": None}
+            previous_reply = await database.messages.find_one({
+                "client_id": client_id,
+                "conversation_id": existing.get("conversation_id"),
+                "reply_to_external_message_id": external_message_id,
+            })
+            if previous_reply:
+                # Retry only an explicitly failed send. A pending send may have
+                # reached Meta before a network timeout, so retrying it blindly
+                # could send the customer a duplicate message.
+                if previous_reply.get("delivery_status") == "failed" and send_to_instagram:
+                    retry_convo = await database.conversations.find_one({
+                        "_id": existing.get("conversation_id"), "client_id": client_id,
+                    })
+                    retry_account_query = {"client_id": client_id, "active": True}
+                    if retry_convo and retry_convo.get("instagram_account_id"):
+                        try:
+                            retry_account_query["_id"] = ObjectId(retry_convo["instagram_account_id"])
+                        except Exception:
+                            retry_account_query["_id"] = None
+                    retry_account = await database.instagram_accounts.find_one(retry_account_query)
+                    if not retry_account or not retry_convo:
+                        raise RuntimeError("Cannot retry failed Instagram reply: active account or conversation is unavailable")
+                    if retry_account and retry_convo:
+                        retry_result = await InstagramService().send_text(
+                            retry_account["instagram_user_id"],
+                            account_access_token(retry_account),
+                            retry_convo["sender_id"],
+                            previous_reply["text"],
+                            await get_client_meta_config(client_id),
+                        )
+                        await database.messages.update_one(
+                            {"_id": previous_reply["_id"], "client_id": client_id},
+                            {"$set": {
+                                "delivery_status": "sent",
+                                "meta_message_id": retry_result.get("message_id") if isinstance(retry_result, dict) else None,
+                                "delivery_error": None,
+                                "delivery_updated_at": now(),
+                            }},
+                        )
+                        return {"status": "duplicate_retried", "reply": previous_reply["text"]}
+                return {"status": "duplicate", "reply": None}
+            # An inbound event may have been stored before processing crashed.
+            # Continue processing it; the unique external-message index protects
+            # the original inbound record from being inserted twice.
+
 
     rate = int(client_doc.get("rate_limit_per_minute", 60) or 60)
     if not await reserve_message_rate(client_id, rate):
@@ -182,9 +232,13 @@ async def process_inbound(
     try:
         await database.messages.insert_one(inbound_doc)
     except Exception:
-        if external_message_id:
-            return {"status": "duplicate", "reply": None}
-        raise
+        if external_message_id and await database.messages.find_one({
+            "client_id": client_id, "external_message_id": external_message_id,
+        }):
+            # Existing inbound record from a prior failed attempt; continue.
+            pass
+        else:
+            raise
 
     response_started = time.monotonic()
     reply, status = await build_response(
@@ -221,14 +275,17 @@ async def process_inbound(
     if product:
         context["last_products"] = [str(product["_id"])] + [x for x in context.get("last_products", []) if x != str(product["_id"])][:4]
 
-    await database.messages.insert_one({
+    outbound_result = await database.messages.insert_one({
         "conversation_id": convo["_id"],
         "client_id": client_id,
         "direction": "outbound",
         "sender_id": "meridin",
         "text": reply,
+        "reply_to_external_message_id": external_message_id,
+        "delivery_status": "pending" if send_to_instagram else "sent",
         "created_at": now(),
     })
+    outbound_message_id = outbound_result.inserted_id
     await record_message(client_id, "outbound", reply)
 
     await database.conversations.update_one(
@@ -269,9 +326,15 @@ async def process_inbound(
             except Exception:
                 account_query["_id"] = None
         account = await database.instagram_accounts.find_one(account_query)
-        if account:
-            instagram_service = InstagramService()
-            meta_config = await get_client_meta_config(client_id)
+        if not account:
+            await database.messages.update_one(
+                {"_id": outbound_message_id, "client_id": client_id},
+                {"$set": {"delivery_status": "failed", "delivery_error": "No active Instagram account"}},
+            )
+            raise RuntimeError("No active Instagram account is connected for this client")
+        instagram_service = InstagramService()
+        meta_config = await get_client_meta_config(client_id)
+        try:
             meta = await instagram_service.send_text(
                 account["instagram_user_id"],
                 account_access_token(account),
@@ -279,49 +342,64 @@ async def process_inbound(
                 reply,
                 meta_config,
             )
-            result["meta"] = meta
+        except Exception as exc:
+            await database.messages.update_one(
+                {"_id": outbound_message_id, "client_id": client_id},
+                {"$set": {"delivery_status": "failed", "delivery_error": str(exc)[:500], "delivery_updated_at": now()}},
+            )
+            raise
+        await database.messages.update_one(
+            {"_id": outbound_message_id, "client_id": client_id},
+            {"$set": {
+                "delivery_status": "sent",
+                "meta_message_id": meta.get("message_id") if isinstance(meta, dict) else None,
+                "delivery_error": None,
+                "delivery_updated_at": now(),
+            }},
+        )
+        result["meta"] = meta
 
-            # Send the matched product photo after its text reply. Prefer a text-matched
-            # product; for image-only DMs, send a photo only for a confident visual match.
-            # For catalogue browsing, send up to three product photos after the text list.
-            # For a single product question/image request, send only the resolved product photo.
-            outgoing_products = []
-            # A single-product photo is sent only when response_service explicitly
-            # marked this turn as a photo request/confirmation. Catalogue search
-            # results may independently provide reply_product_ids for previews.
-            should_send_product_image = bool(context.pop("send_product_image", False))
-            reply_product_ids = context.pop("reply_product_ids", [])
-            if reply_product_ids:
-                for reply_product_id in reply_product_ids[:3]:
-                    candidate = await get_product(client_id, reply_product_id)
-                    if candidate and candidate.get("image_url"):
-                        outgoing_products.append(candidate)
-            elif should_send_product_image and product and product.get("image_url"):
-                outgoing_products = [product]
-            if not outgoing_products and image_url and visual_candidates:
-                from app.core.config import settings
-                top = visual_candidates[0]
-                second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
-                top_score = float(top.get("visual_similarity", 0))
-                if top_score >= settings.visual_similarity_threshold and (len(visual_candidates) == 1 or top_score - second_score >= settings.visual_match_margin) and top.get("image_url"):
-                    outgoing_products = [top]
-            if outgoing_products:
-                image_results = []
-                for outgoing_product in outgoing_products[:3]:
-                    try:
-                        image_result = await instagram_service.send_image(
-                            account["instagram_user_id"],
-                            account_access_token(account),
-                            sender_id,
-                            outgoing_product["image_url"],
-                            meta_config,
-                        )
-                        image_results.append({"product_id": str(outgoing_product.get("_id")), "result": image_result})
-                    except Exception:
-                        logger.exception("Could not send product image: client_id=%s", client_id)
-                        image_results.append({"product_id": str(outgoing_product.get("_id")), "error": "image_send_failed"})
-                result["meta_images"] = image_results
-                result["product_image_sent"] = any("error" not in item for item in image_results)
+        # Send the matched product photo after its text reply. Prefer a text-matched
+        # product; for image-only DMs, send a photo only for a confident visual match.
+        # For catalogue browsing, send up to three product photos after the text list.
+        # For a single product question/image request, send only the resolved product photo.
+        outgoing_products = []
+        # A single-product photo is sent only when response_service explicitly
+        # marked this turn as a photo request/confirmation. Catalogue search
+        # results may independently provide reply_product_ids for previews.
+        should_send_product_image = bool(context.pop("send_product_image", False))
+        reply_product_ids = context.pop("reply_product_ids", [])
+        if reply_product_ids:
+            for reply_product_id in reply_product_ids[:3]:
+                candidate = await get_product(client_id, reply_product_id)
+                if candidate and candidate.get("image_url"):
+                    outgoing_products.append(candidate)
+        elif should_send_product_image and product and product.get("image_url"):
+            outgoing_products = [product]
+        if not outgoing_products and image_url and visual_candidates:
+            from app.core.config import settings
+            top = visual_candidates[0]
+            second_score = float(visual_candidates[1].get("visual_similarity", 0)) if len(visual_candidates) > 1 else 0.0
+            top_score = float(top.get("visual_similarity", 0))
+            if top_score >= settings.visual_similarity_threshold and (len(visual_candidates) == 1 or top_score - second_score >= settings.visual_match_margin) and top.get("image_url"):
+                outgoing_products = [top]
+        if outgoing_products:
+            image_results = []
+            for outgoing_product in outgoing_products[:3]:
+                try:
+                    image_result = await instagram_service.send_image(
+                        account["instagram_user_id"],
+                        account_access_token(account),
+                        sender_id,
+                        outgoing_product["image_url"],
+                        meta_config,
+                    )
+                    image_results.append({"product_id": str(outgoing_product.get("_id")), "result": image_result})
+                except Exception:
+                    logger.exception("Could not send product image: client_id=%s", client_id)
+                    image_results.append({"product_id": str(outgoing_product.get("_id")), "error": "image_send_failed"})
+            result["meta_images"] = image_results
+            result["product_image_sent"] = any("error" not in item for item in image_results)
 
     return result
 
@@ -344,3 +422,48 @@ def serialize_conversation(doc):
         "created_at": doc.get("created_at"),
         "updated_at": doc.get("updated_at"),
     }
+
+
+# A MongoDB-backed lease serializes a customer's messages across application
+# workers/instances. The lease expires automatically if a worker crashes.
+async def process_inbound(*, client_id: str, sender_id: str, **kwargs):
+    database = db()
+    lock_key = f"{client_id}:{sender_id}"
+    owner = uuid.uuid4().hex
+    acquired = False
+    deadline = time.monotonic() + 35
+
+    while not acquired:
+        current = now()
+        try:
+            lock_doc = await database.conversation_locks.find_one_and_update(
+                {
+                    "_id": lock_key,
+                    "$or": [
+                        {"lease_until": {"$lte": current}},
+                        {"lease_until": {"$exists": False}},
+                    ],
+                },
+                {"$set": {
+                    "owner": owner,
+                    "lease_until": current + __import__("datetime").timedelta(seconds=120),
+                    "updated_at": current,
+                }},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            acquired = bool(lock_doc and lock_doc.get("owner") == owner)
+        except DuplicateKeyError:
+            acquired = False
+
+        if not acquired:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Timed out waiting for conversation processing lock")
+            await asyncio.sleep(0.1)
+
+    try:
+        return await _process_inbound_unlocked(
+            client_id=client_id, sender_id=sender_id, **kwargs
+        )
+    finally:
+        await database.conversation_locks.delete_one({"_id": lock_key, "owner": owner})
