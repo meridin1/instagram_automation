@@ -64,6 +64,7 @@ async def ensure_indexes():
         await database.instagram_accounts.update_one({"_id": account["_id"]}, {"$set": {"access_token_encrypted": encrypt_secret(account["access_token"])}, "$unset": {"access_token": ""}})
     await database.instagram_accounts.create_index("instagram_user_id", unique=True, name="instagram_account_global_unique")
     await database.conversations.create_index([("client_id", 1), ("sender_id", 1)], unique=True)
+    await database.conversation_locks.create_index("lease_until", expireAfterSeconds=300)
     await database.messages.create_index([("client_id", 1), ("conversation_id", 1), ("created_at", -1)])
     await database.messages.create_index([("client_id", 1), ("external_message_id", 1)], unique=True, partialFilterExpression={"external_message_id": {"$type": "string"}}, name="client_external_message_unique")
     await database.webhook_events.create_index([("client_id", 1), ("event_id", 1)], unique=True, name="client_webhook_event_unique")
