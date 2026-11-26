@@ -102,6 +102,8 @@ async def _process_inbound_unlocked(
                         except Exception:
                             retry_account_query["_id"] = None
                     retry_account = await database.instagram_accounts.find_one(retry_account_query)
+                    if not retry_account or not retry_convo:
+                        raise RuntimeError("Cannot retry failed Instagram reply: active account or conversation is unavailable")
                     if retry_account and retry_convo:
                         retry_result = await InstagramService().send_text(
                             retry_account["instagram_user_id"],
