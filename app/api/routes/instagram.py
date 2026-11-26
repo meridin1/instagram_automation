@@ -41,7 +41,9 @@ def _extract_message_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
 
             message = messaging.get("message") or {}
-            is_echo = bool(message.get("is_echo"))
+            # Meta's webhook payloads may identify business-authored messages
+            # using is_echo or is_self depending on the integration surface.
+            is_echo = bool(message.get("is_echo") or message.get("is_self"))
             sender_id = (messaging.get("sender") or {}).get("id")
             recipient_id = (messaging.get("recipient") or {}).get("id")
 
