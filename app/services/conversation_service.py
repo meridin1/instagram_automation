@@ -56,7 +56,7 @@ async def _resolve_source_product(client_id: str, source_id: str | None):
     return await get_product(client_id, mapping["product_id"])
 
 
-async def process_inbound(
+async def _process_inbound_unlocked(
     client_id: str,
     sender_id: str,
     text: str,
@@ -76,6 +76,51 @@ async def process_inbound(
     if external_message_id:
         existing = await database.messages.find_one({"client_id": client_id, "external_message_id": external_message_id})
         if existing:
+            failed_reply = await database.messages.find_one({
+                "client_id": client_id,
+                "conversation_id": existing.get("conversation_id"),
+                "direction": "outbound",
+                "sender_id": "meridin",
+                "delivery_status": {"$in": ["pending", "failed"]},
+            }, sort=[("created_at", -1)])
+            if failed_reply:
+                convo_for_retry = await database.conversations.find_one({
+                    "_id": existing.get("conversation_id"), "client_id": client_id,
+                })
+                account_for_retry = None
+                if convo_for_retry:
+                    account_query = {"client_id": client_id, "active": True}
+                    if convo_for_retry.get("instagram_account_id"):
+                        try:
+                            account_query["_id"] = ObjectId(convo_for_retry["instagram_account_id"])
+                        except Exception:
+                            account_query["_id"] = None
+                    account_for_retry = await database.instagram_accounts.find_one(account_query)
+                if account_for_retry and convo_for_retry:
+                    try:
+                        meta_retry = await InstagramService().send_text(
+                            account_for_retry["instagram_user_id"],
+                            account_access_token(account_for_retry),
+                            convo_for_retry["sender_id"],
+                            failed_reply["text"],
+                            await get_client_meta_config(client_id),
+                        )
+                        await database.messages.update_one(
+                            {"_id": failed_reply["_id"], "client_id": client_id},
+                            {"$set": {
+                                "delivery_status": "sent",
+                                "meta_message_id": meta_retry.get("message_id") if isinstance(meta_retry, dict) else None,
+                                "delivery_error": None,
+                                "delivery_updated_at": now(),
+                            }},
+                        )
+                        return {"status": "duplicate_retried", "reply": failed_reply["text"]}
+                    except Exception as exc:
+                        await database.messages.update_one(
+                            {"_id": failed_reply["_id"], "client_id": client_id},
+                            {"$set": {"delivery_status": "failed", "delivery_error": str(exc)[:500], "delivery_updated_at": now()}},
+                        )
+                        raise
             return {"status": "duplicate", "reply": None}
 
     rate = int(client_doc.get("rate_limit_per_minute", 60) or 60)
@@ -221,14 +266,16 @@ async def process_inbound(
     if product:
         context["last_products"] = [str(product["_id"])] + [x for x in context.get("last_products", []) if x != str(product["_id"])][:4]
 
-    await database.messages.insert_one({
+    outbound_result = await database.messages.insert_one({
         "conversation_id": convo["_id"],
         "client_id": client_id,
         "direction": "outbound",
         "sender_id": "meridin",
         "text": reply,
+        "delivery_status": "pending" if send_to_instagram else "sent",
         "created_at": now(),
     })
+    outbound_message_id = outbound_result.inserted_id
     await record_message(client_id, "outbound", reply)
 
     await database.conversations.update_one(
@@ -269,9 +316,15 @@ async def process_inbound(
             except Exception:
                 account_query["_id"] = None
         account = await database.instagram_accounts.find_one(account_query)
-        if account:
-            instagram_service = InstagramService()
-            meta_config = await get_client_meta_config(client_id)
+        if not account:
+            await database.messages.update_one(
+                {"_id": outbound_message_id, "client_id": client_id},
+                {"$set": {"delivery_status": "failed", "delivery_error": "No active Instagram account"}},
+            )
+            raise RuntimeError("No active Instagram account is connected for this client")
+        instagram_service = InstagramService()
+        meta_config = await get_client_meta_config(client_id)
+        try:
             meta = await instagram_service.send_text(
                 account["instagram_user_id"],
                 account_access_token(account),
@@ -279,7 +332,22 @@ async def process_inbound(
                 reply,
                 meta_config,
             )
-            result["meta"] = meta
+        except Exception as exc:
+            await database.messages.update_one(
+                {"_id": outbound_message_id, "client_id": client_id},
+                {"$set": {"delivery_status": "failed", "delivery_error": str(exc)[:500], "delivery_updated_at": now()}},
+            )
+            raise
+        await database.messages.update_one(
+            {"_id": outbound_message_id, "client_id": client_id},
+            {"$set": {
+                "delivery_status": "sent",
+                "meta_message_id": meta.get("message_id") if isinstance(meta, dict) else None,
+                "delivery_error": None,
+                "delivery_updated_at": now(),
+            }},
+        )
+        result["meta"] = meta
 
             # Send the matched product photo after its text reply. Prefer a text-matched
             # product; for image-only DMs, send a photo only for a confident visual match.
@@ -344,3 +412,17 @@ def serialize_conversation(doc):
         "created_at": doc.get("created_at"),
         "updated_at": doc.get("updated_at"),
     }
+
+
+# Serialize messages for the same customer within this application process.
+# Run a single application worker unless this is replaced by a distributed MongoDB lock.
+_conversation_locks: dict[str, asyncio.Lock] = {}
+
+
+async def process_inbound(*, client_id: str, sender_id: str, **kwargs):
+    lock_key = f"{client_id}:{sender_id}"
+    lock = _conversation_locks.setdefault(lock_key, asyncio.Lock())
+    async with lock:
+        return await _process_inbound_unlocked(
+            client_id=client_id, sender_id=sender_id, **kwargs
+        )
