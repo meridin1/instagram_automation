@@ -30,3 +30,54 @@ async def test_attachment_marker_does_not_call_llm(monkeypatch):
     result = await understand("[instagram_attachment:image]", None, {}, True, "unused-client")
     assert result.intent == "unknown"
     assert result.source == "rules"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("marker", "source_label"),
+    [
+        ("[instagram_attachment:post]", "post"),
+        ("[instagram_attachment:story_reply]", "story"),
+    ],
+)
+async def test_mapped_post_or_story_attachment_uses_catalogue_facts(marker, source_label):
+    intent = IntentResult(intent="unknown", confidence=1.0, source="rules", entities={})
+    product = {
+        "_id": "product-123",
+        "name": "Floral Kurti",
+        "price": 1299,
+        "sizes": ["S", "M", "L"],
+        "colors": ["Pink", "Black"],
+    }
+
+    reply, status = await build_response(
+        "unused-client",
+        intent,
+        product,
+        marker,
+        context={},
+    )
+
+    assert status == "automated"
+    assert source_label in reply
+    assert "Floral Kurti" in reply
+    assert "₹1299" in reply
+    assert "S, M, L" in reply
+    assert "Pink, Black" in reply
+
+
+@pytest.mark.asyncio
+async def test_unmapped_post_attachment_does_not_guess_a_product():
+    intent = IntentResult(intent="unknown", confidence=1.0, source="rules", entities={})
+
+    reply, status = await build_response(
+        "unused-client",
+        intent,
+        None,
+        "[instagram_attachment:post]",
+        context={},
+    )
+
+    assert status == "automated"
+    assert "product name" in reply
+    assert "catalogue" in reply

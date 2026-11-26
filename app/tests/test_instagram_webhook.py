@@ -106,3 +106,61 @@ def test_extracts_self_authored_business_message():
 
     assert len(events) == 1
     assert events[0]["is_echo"] is True
+
+
+
+def test_extracts_story_reply_context():
+    payload = {
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "customer-1"},
+                "recipient": {"id": "business-1"},
+                "message": {
+                    "mid": "mid-story-1",
+                    "text": "Is this available?",
+                    "reply_to": {
+                        "story": {
+                            "id": "story-media-123",
+                            "url": "https://example.com/story.jpg",
+                        }
+                    },
+                },
+            }]
+        }]
+    }
+
+    events = _extract_message_events(payload)
+
+    assert len(events) == 1
+    assert events[0]["source_type"] == "story_reply"
+    assert events[0]["source_id"] == "story-media-123"
+    assert events[0]["source_url"] == "https://example.com/story.jpg"
+    assert events[0]["text"] == "Is this available?"
+
+
+def test_extracts_shared_instagram_post_context():
+    payload = {
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "customer-1"},
+                "recipient": {"id": "business-1"},
+                "message": {
+                    "mid": "mid-post-1",
+                    "attachments": [{
+                        "type": "ig_post",
+                        "payload": {
+                            "id": "post-media-456",
+                            "url": "https://example.com/post.jpg",
+                        },
+                    }],
+                },
+            }]
+        }]
+    }
+
+    events = _extract_message_events(payload)
+
+    assert len(events) == 1
+    assert events[0]["source_type"] == "shared_post"
+    assert events[0]["source_id"] == "post-media-456"
+    assert events[0]["text"] == "[instagram_attachment:post]"
