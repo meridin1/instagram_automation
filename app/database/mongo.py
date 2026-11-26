@@ -66,6 +66,8 @@ async def ensure_indexes():
     await database.conversations.create_index([("client_id", 1), ("sender_id", 1)], unique=True)
     await database.messages.create_index([("client_id", 1), ("conversation_id", 1), ("created_at", -1)])
     await database.messages.create_index([("client_id", 1), ("external_message_id", 1)], unique=True, partialFilterExpression={"external_message_id": {"$type": "string"}}, name="client_external_message_unique")
+    await database.webhook_events.create_index([("client_id", 1), ("event_id", 1)], unique=True, name="client_webhook_event_unique")
+    await database.webhook_events.create_index([("status", 1), ("created_at", 1)])
     await database.product_mappings.create_index([("client_id", 1), ("instagram_media_id", 1)], unique=True)
     await database.business_settings.create_index("client_id", unique=True)
     await database.automation_settings.create_index("client_id", unique=True)
