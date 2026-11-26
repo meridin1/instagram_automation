@@ -74,54 +74,13 @@ async def _process_inbound_unlocked(
         return {"status": "client_disabled", "reply": None}
 
     if external_message_id:
-        existing = await database.messages.find_one({"client_id": client_id, "external_message_id": external_message_id})
+        existing = await database.messages.find_one({
+            "client_id": client_id,
+            "external_message_id": external_message_id,
+        })
         if existing:
-            failed_reply = await database.messages.find_one({
-                "client_id": client_id,
-                "conversation_id": existing.get("conversation_id"),
-                "direction": "outbound",
-                "sender_id": "meridin",
-                "delivery_status": {"$in": ["pending", "failed"]},
-            }, sort=[("created_at", -1)])
-            if failed_reply:
-                convo_for_retry = await database.conversations.find_one({
-                    "_id": existing.get("conversation_id"), "client_id": client_id,
-                })
-                account_for_retry = None
-                if convo_for_retry:
-                    account_query = {"client_id": client_id, "active": True}
-                    if convo_for_retry.get("instagram_account_id"):
-                        try:
-                            account_query["_id"] = ObjectId(convo_for_retry["instagram_account_id"])
-                        except Exception:
-                            account_query["_id"] = None
-                    account_for_retry = await database.instagram_accounts.find_one(account_query)
-                if account_for_retry and convo_for_retry:
-                    try:
-                        meta_retry = await InstagramService().send_text(
-                            account_for_retry["instagram_user_id"],
-                            account_access_token(account_for_retry),
-                            convo_for_retry["sender_id"],
-                            failed_reply["text"],
-                            await get_client_meta_config(client_id),
-                        )
-                        await database.messages.update_one(
-                            {"_id": failed_reply["_id"], "client_id": client_id},
-                            {"$set": {
-                                "delivery_status": "sent",
-                                "meta_message_id": meta_retry.get("message_id") if isinstance(meta_retry, dict) else None,
-                                "delivery_error": None,
-                                "delivery_updated_at": now(),
-                            }},
-                        )
-                        return {"status": "duplicate_retried", "reply": failed_reply["text"]}
-                    except Exception as exc:
-                        await database.messages.update_one(
-                            {"_id": failed_reply["_id"], "client_id": client_id},
-                            {"$set": {"delivery_status": "failed", "delivery_error": str(exc)[:500], "delivery_updated_at": now()}},
-                        )
-                        raise
             return {"status": "duplicate", "reply": None}
+
 
     rate = int(client_doc.get("rate_limit_per_minute", 60) or 60)
     if not await reserve_message_rate(client_id, rate):
